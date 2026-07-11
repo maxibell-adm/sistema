@@ -19,7 +19,6 @@ export default function ModalManutencao({ onClose }) {
   const { obras, atualizarObra } = useObras();
   const responsavelPadrao = usuarioPorRole('medicao')?.nome || usuario.nome;
   const usuarios = carregarUsuarios().filter((item) => item.ativo);
-  const obrasFinalizadas = obras.filter((obra) => obra.etapa === 'finalizado' || obra.dataFinalizacao);
   const [form, setForm] = useState({
     pp: '',
     cliente: '',
@@ -34,7 +33,8 @@ export default function ModalManutencao({ onClose }) {
     obs: '',
   });
   const [buscaObra, setBuscaObra] = useState('');
-  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const [obraSelecionada, setObraSelecionada] = useState(null);
+  const [mostrarBusca, setMostrarBusca] = useState(true);
 
   const diaSemana = form.data ? DIAS_SEMANA[new Date(`${form.data}T12:00:00`).getDay()] : null;
   const atividadesDoDia = form.data ? (atividades || []).filter((atividade) => atividade.data === form.data) : [];
@@ -48,22 +48,23 @@ export default function ModalManutencao({ onClose }) {
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
-  function preencherObra(original) {
+  function selecionarObra(obra) {
+    setObraSelecionada(obra);
+    setMostrarBusca(false);
+    setBuscaObra('');
     setForm((atual) => ({
       ...atual,
-      obraOriginalId: original?.id || '',
-      pp: original?.pp || atual.pp,
-      cliente: original?.cliente || atual.cliente,
-      cidade: original?.cidade || atual.cidade,
+      obraOriginalId: obra.id,
+      pp: obra.pp,
+      cliente: obra.cliente,
+      cidade: obra.cidade || '',
     }));
-    if (original) {
-      setBuscaObra(`${original.pp} - ${original.cliente}`);
-      setMostrarSugestoes(false);
-    }
   }
 
-  function selecionarObra(id) {
-    preencherObra(obras.find((obra) => obra.id === id));
+  function trocarObra() {
+    setMostrarBusca(true);
+    setObraSelecionada(null);
+    setForm((atual) => ({ ...atual, obraOriginalId: '' }));
   }
 
   function salvar() {
@@ -109,38 +110,37 @@ export default function ModalManutencao({ onClose }) {
       footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={salvar} disabled={!form.cliente.trim() || !form.data}>Registrar</Button></>}
     >
       <div className="form-grid">
-        <div className="form-field full" style={{ position: 'relative' }}>
-          <label>Buscar obra (opcional)</label>
-          <input
-            value={buscaObra}
-            onChange={(e) => {
-              setBuscaObra(e.target.value);
-              setMostrarSugestoes(true);
-              if (!e.target.value) set('obraOriginalId', '');
-            }}
-            placeholder="Digite PP ou cliente para buscar..."
-            autoComplete="off"
-            onFocus={() => setMostrarSugestoes(true)}
-          />
-          {mostrarSugestoes && obrasFiltradas.length > 0 && (
-            <div className="obra-busca-dropdown">
-              {obrasFiltradas.map((obra) => (
-                <button type="button" key={obra.id} className="obra-busca-item" onMouseDown={() => preencherObra(obra)}>
-                  <span className="fw-700">{obra.pp}</span>
-                  <span className="ml-8">{obra.cliente}</span>
-                  <span className="text-muted fs-11 ml-8">{obra.cidade}</span>
-                </button>
-              ))}
+        {mostrarBusca ? (
+          <div className="form-field full" style={{ position: 'relative' }}>
+            <label>Buscar obra vinculada (opcional)</label>
+            <input
+              value={buscaObra}
+              onChange={(e) => setBuscaObra(e.target.value)}
+              placeholder="Digite PP ou nome do cliente..."
+              autoComplete="off"
+            />
+            {obrasFiltradas.length > 0 && (
+              <div className="obra-busca-dropdown">
+                {obrasFiltradas.map((obra) => (
+                  <button type="button" key={obra.id} className="obra-busca-item" onMouseDown={() => selecionarObra(obra)}>
+                    <span className="fw-700">{obra.pp}</span>
+                    <span className="ml-8">{obra.cliente}</span>
+                    <span className="text-muted fs-11 ml-8">{obra.cidade}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="form-field full">
+            <div className="obra-selecionada-resumo">
+              <span className="fw-700">{obraSelecionada.pp}</span>
+              <span className="ml-8">{obraSelecionada.cliente}</span>
+              <span className="text-muted fs-11 ml-8">{obraSelecionada.cidade}</span>
+              <button type="button" className="trocar-obra-btn" onClick={trocarObra}>Trocar</button>
             </div>
-          )}
-        </div>
-        <div className="form-field full">
-          <label>Obra original</label>
-          <select value={form.obraOriginalId} onChange={(e) => selecionarObra(e.target.value)}>
-            <option value="">Sem vínculo</option>
-            {obrasFinalizadas.map((obra) => <option value={obra.id} key={obra.id}>{obra.pp} - {obra.cliente}</option>)}
-          </select>
-        </div>
+          </div>
+        )}
         <div className="form-field"><label>PP</label><input value={form.pp} onChange={(e) => set('pp', e.target.value)} /></div>
         <div className="form-field"><label>Cliente</label><input value={form.cliente} onChange={(e) => set('cliente', e.target.value)} /></div>
         <div className="form-field"><label>Cidade</label><input value={form.cidade} onChange={(e) => set('cidade', e.target.value)} /></div>

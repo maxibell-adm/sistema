@@ -63,3 +63,8 @@
 .aguinaldo-btn-perguntar{background:var(--azul);color:#fff;border:none;border-radius:10px;padding:14px 20px;font-size:14px;font-weight:700;cursor:pointer}
 .aguinaldo-btn-perguntar:disabled{opacity:.5;cursor:default}
 @media(max-width:720px){.aguinaldo-status-grid,.aguinaldo-nav-grid,.aguinaldo-indicadores-grid{grid-template-columns:1fr}.aguinaldo-agenda-semana{grid-template-columns:1fr}}
+.status-numero.valor{font-size:22px}
+.aguinaldo-ind-valor.valor{font-size:22px}
+.aguinaldo-obra-valor{color:var(--verde);margin-left:auto}
+.aguinaldo-grupo-corpo{display:flex;flex-direction:column;flex:1}
+.aguinaldo-grupo-linha{display:flex;align-items:center;gap:12px}

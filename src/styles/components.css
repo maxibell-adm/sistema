@@ -646,3 +646,82 @@
   font-style: italic;
   margin-top: 2px;
 }
+.btn-importar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  color: #fff;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: .15s;
+}
+.btn-importar.xls { background: var(--verde); }
+.btn-importar.json { background: var(--azul-claro); }
+.btn-importar:hover { filter: brightness(.95); transform: translateY(-1px); }
+.obra-selecionada-resumo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: var(--azul-bg);
+  border: 1px solid var(--azul-claro);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.trocar-obra-btn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--azul-claro);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.biblioteca-projetos-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.biblioteca-projetos-toolbar input {
+  flex: 1;
+  min-width: 200px;
+  border: 1px solid var(--cinza-borda);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.biblioteca-projeto-card {
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.biblioteca-projeto-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.biblioteca-projeto-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+.biblioteca-projeto-arquivos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cinza-claro);
+}

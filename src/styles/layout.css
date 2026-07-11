@@ -47,7 +47,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 9000;
+  z-index: 99999;
   background: var(--pg-bg);
   display: flex;
   flex-direction: column;
@@ -62,16 +62,27 @@
   border-bottom: 1px solid var(--cinza-borda);
   flex-shrink: 0;
   flex-wrap: wrap;
+  min-height: 50px;
 }
 .kanban-fullscreen-body {
   flex: 1;
   overflow-x: auto;
   overflow-y: auto;
   padding: 10px 14px;
+  box-sizing: border-box;
 }
 .kanban-fullscreen-body .kanban {
+  display: flex;
+  gap: 8px;
   min-height: 100%;
+  height: max-content;
   width: max-content;
+  align-items: flex-start;
+}
+.kanban-fullscreen-body .kanban-col {
+  min-width: 185px;
+  max-width: 205px;
+  flex-shrink: 0;
 }
 .metrica-mini-texto {
   font-family: 'Montserrat', sans-serif;

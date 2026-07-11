@@ -19,6 +19,13 @@ export default function Sidebar() {
             <div className="sidebar-usuario-cargo">{usuario.cargo}</div>
           </div>
         </div>
+        <nav className="sidebar-nav">
+          <div className="sidebar-nav-titulo">Menu</div>
+          <NavLink to="/" end className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>Painel</NavLink>
+          <NavLink to="/ag/max" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>MAX IA</NavLink>
+          <NavLink to="/ag/obras" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>Central de Obras</NavLink>
+          <NavLink to="/ag/agenda" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>Agenda</NavLink>
+        </nav>
         <div className="sidebar-footer">
           <button className="btn-sair" onClick={logout}>Sair</button>
         </div>
@@ -93,6 +100,9 @@ export default function Sidebar() {
 
         {usuario.role === 'projetos' && (
           <>
+            <NavLink to="/biblioteca-projetos" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+              Biblioteca de Projetos
+            </NavLink>
             <a href="https://maxibell-adm.github.io/projetos/" target="_blank" rel="noopener noreferrer" className="nav-btn">Projetos</a>
             <a href="https://maxibell-adm.github.io/Maxibell/aplicativos/validacao-projetos.html" target="_blank" rel="noopener noreferrer" className="nav-btn">Conferência</a>
           </>

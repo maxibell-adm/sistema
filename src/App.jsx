@@ -13,6 +13,8 @@ import Lembretes from '@/pages/Lembretes.jsx';
 import AdminUsuarios from '@/pages/AdminUsuarios.jsx';
 import PainelIA from '@/pages/PainelIA.jsx';
 import BibliotecaIA from '@/pages/BibliotecaIA.jsx';
+import BibliotecaProjetos from '@/pages/BibliotecaProjetos.jsx';
+import CentralAguinaldo from '@/pages/CentralAguinaldo.jsx';
 
 function Protected({ children }) {
   const { usuario } = useAuth();
@@ -51,10 +53,14 @@ function AppRoutes() {
         <Route path="obras/:id" element={<ObraDetalhe />} />
         <Route path="nova-obra" element={<NovaObraRoute />} />
         <Route path="agenda" element={<AgendaSemanal />} />
+        <Route path="ag/max" element={<CentralAguinaldo secaoInicial="max" />} />
+        <Route path="ag/obras" element={<CentralObras />} />
+        <Route path="ag/agenda" element={<AgendaSemanal />} />
         <Route path="lembretes" element={<Lembretes />} />
         <Route path="admin/usuarios" element={<AdminUsuarios />} />
         <Route path="ia" element={<PainelIA />} />
         <Route path="biblioteca-ia" element={<BibliotecaIA />} />
+        <Route path="biblioteca-projetos" element={<BibliotecaProjetos />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
@@ -72,4 +78,3 @@ export default function App() {
     </AuthProvider>
   );
 }
-

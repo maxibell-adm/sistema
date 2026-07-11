@@ -90,15 +90,15 @@ export default function NovaObra() {
       <section className="card card-pad mb-16">
         <div className="section-hdr"><div className="section-titulo">Importação de Arquivos</div></div>
         <div className="import-actions">
-          <label className="btn btn-success">Ã°Å¸“â€ž Importar Orçamento XLS<input hidden type="file" accept=".xls,.xml" onChange={importarXLS} /></label>
-          <label className="btn btn-success">Ã°Å¸“â€¹ Importar Contrato JSON<input hidden type="file" accept=".json" onChange={importarJSON} /></label>
+          <label className="btn-importar xls">Importar Orçamento XLS<input hidden type="file" accept=".xls,.xml" onChange={importarXLS} /></label>
+          <label className="btn-importar json">Importar Contrato JSON<input hidden type="file" accept=".json" onChange={importarJSON} /></label>
         </div>
         {importado && <div className="import-resumo">
-          <div>✓ Cliente: <b>{form.cliente || '-'}</b></div>
-          <div>✓ PP: <b>{form.pp || '-'}</b></div>
-          <div>✓ Cidade: <b>{form.cidade || '-'}</b></div>
-          <div>✓ Valor: <b>{form.valor || '-'}</b></div>
-          <div>✓ Tipo: <b>{form.tipo}</b></div>
+          <div>Cliente: <b>{form.cliente || '-'}</b></div>
+          <div>PP: <b>{form.pp || '-'}</b></div>
+          <div>Cidade: <b>{form.cidade || '-'}</b></div>
+          <div>Valor: <b>{form.valor || '-'}</b></div>
+          <div>Tipo: <b>{form.tipo}</b></div>
         </div>}
       </section>
       <section className="card card-pad mb-16">
@@ -122,12 +122,16 @@ export default function NovaObra() {
             <input type="date" value={form.prazoCliente || ''} min={new Date().toISOString().split('T')[0]} onChange={(e) => set('prazoCliente', e.target.value)} />
             <small className="text-muted fs-11">Data que o cliente espera receber a obra.</small>
           </div>
+          <div className="form-field">
+            <label>Valor do contrato (R$)</label>
+            <input type="text" value={form.valor || ''} onChange={(e) => set('valor', e.target.value)} placeholder="Ex: 15.000,00" autoComplete="off" />
+            <small className="fs-10 text-muted">Preenchido automaticamente ao importar contrato JSON.</small>
+          </div>
         </div>
       </section>
       <section className="card card-pad mb-16">
         <div className="section-hdr"><div className="section-titulo">3. Financeiro</div></div>
         <div className="form-grid">
-          <div className="form-field"><label>Valor</label><input value={form.valor} onChange={(e) => set('valor', e.target.value)} /></div>
           <div className="form-field"><label>Pagamento</label><input value={form.pagamento} onChange={(e) => set('pagamento', e.target.value)} /></div>
         </div>
       </section>
@@ -146,4 +150,3 @@ export default function NovaObra() {
     </form>
   );
 }
-

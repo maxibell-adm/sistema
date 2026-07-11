@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GRUPOS_KANBAN } from '@/config/etapas.js';
 import { calcPrazo } from '@/rules/prazosRules.js';
@@ -159,7 +160,7 @@ export default function CentralObras() {
         </>
       )}
 
-      {fullscreen && (
+      {fullscreen && createPortal(
         <div className="kanban-fullscreen-overlay">
           <div className="kanban-fullscreen-header">
             <button className="btn btn-danger btn-sm" onClick={() => setFullscreen(false)}>Sair da tela cheia</button>
@@ -174,7 +175,8 @@ export default function CentralObras() {
           <div className="kanban-fullscreen-body">
             {renderKanban()}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {dragModal && <ModalAvancarEtapa obra={dragModal.obra} etapaInicial={dragModal.destino} onClose={() => setDragModal(null)} />}
