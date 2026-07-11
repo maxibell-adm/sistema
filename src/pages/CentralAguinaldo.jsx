@@ -147,21 +147,33 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
         <div className="aguinaldo-saudacao">{saudacao}, Aguinaldo.</div>
         <div className="aguinaldo-subtitulo">Resumo executivo da Maxibell hoje</div>
 
+        <div className="aguinaldo-nav-grid">
+          <button className="aguinaldo-nav-btn" onClick={() => setSecao('producao')}>
+            <span className="aguinaldo-nav-label">Produção</span>
+          </button>
+          <button className="aguinaldo-nav-btn" onClick={() => setSecao('empresa')}>
+            <span className="aguinaldo-nav-label">Empresa</span>
+          </button>
+          <button className="aguinaldo-nav-btn" onClick={() => setSecao('equipe')}>
+            <span className="aguinaldo-nav-label">Equipe</span>
+          </button>
+        </div>
+
         <div className="aguinaldo-status-grid">
-          <div className="aguinaldo-status-card">
-            <span className="status-numero">{obrasAtivas.length}</span>
+          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
+            <span className="status-numero" style={{ fontSize: 22 }}>{obrasAtivas.length}</span>
             <span className="status-label">obras em andamento</span>
           </div>
-          <div className="aguinaldo-status-card">
-            <span className="status-numero">{Object.values(gruposProducao).reduce((acc, grupo) => acc + grupo.obras.length, 0)}</span>
+          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
+            <span className="status-numero" style={{ fontSize: 22 }}>{Object.values(gruposProducao).reduce((acc, grupo) => acc + grupo.obras.length, 0)}</span>
             <span className="status-label">em produção, compra, projeto ou atraso</span>
           </div>
-          <div className="aguinaldo-status-card">
-            <span className="status-numero">{obrasFinalizadas.length}</span>
+          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
+            <span className="status-numero" style={{ fontSize: 22 }}>{obrasFinalizadas.length}</span>
             <span className="status-label">obras finalizadas</span>
           </div>
-          <div className="aguinaldo-status-card">
-            <span className="status-numero valor">{formatarValor(dadosFinanceiros.totalVendas)}</span>
+          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
+            <span className="status-numero valor" style={{ fontSize: 18 }}>{formatarValor(dadosFinanceiros.totalVendas)}</span>
             <span className="status-label">vendas este mês</span>
           </div>
         </div>
@@ -183,18 +195,6 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
             ))}
           </div>
         )}
-
-        <div className="aguinaldo-nav-grid">
-          <button className="aguinaldo-nav-btn" onClick={() => setSecao('producao')}>
-            <span className="aguinaldo-nav-label">Produção</span>
-          </button>
-          <button className="aguinaldo-nav-btn" onClick={() => setSecao('empresa')}>
-            <span className="aguinaldo-nav-label">Empresa</span>
-          </button>
-          <button className="aguinaldo-nav-btn" onClick={() => setSecao('equipe')}>
-            <span className="aguinaldo-nav-label">Equipe</span>
-          </button>
-        </div>
       </div>
     );
   }
@@ -377,28 +377,50 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => { setSecao('home'); setResposta(''); }}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Conversar com MAX</div>
+        <button className="aguinaldo-voltar" onClick={() => { setSecao('home'); setResposta(''); }}>← Voltar</button>
+        <div className="aguinaldo-secao-titulo" style={{ fontSize: 20, marginBottom: 16 }}>MAX IA</div>
+
+        {insights.length > 0 && !resposta && !carregando && (
+          <div className="aguinaldo-secao mb-20">
+            <div className="aguinaldo-secao-titulo">Alertas da MAX</div>
+            {insights.map((insight) => (
+              <div key={insight.id} className="aguinaldo-alerta-card">
+                <div className={`aguinaldo-alerta-tipo tipo-${insight.tipo}`}>{insight.tipo}</div>
+                <div className="aguinaldo-alerta-corpo">
+                  <div className="aguinaldo-alerta-titulo">{insight.titulo}</div>
+                  <div className="aguinaldo-alerta-desc">{textoInsight(insight)}</div>
+                </div>
+                {insight.acao?.obraId && (
+                  <button className="aguinaldo-btn-ver" onClick={() => navigate(`/obras/${insight.acao.obraId}`)}>Ver</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
         {!resposta && !carregando && (
-          <>
-            <div className="aguinaldo-sugestoes">
-              {sugestoes.map((sugestao) => (
-                <button key={sugestao} className="aguinaldo-sugestao-btn" onClick={() => fazerPergunta(sugestao)}>{sugestao}</button>
-              ))}
-            </div>
-            <div className="aguinaldo-pergunta-input-wrap">
-              <input
-                value={pergunta}
-                onChange={(e) => setPergunta(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
-                placeholder="Ou escreva sua pergunta..."
-                className="aguinaldo-pergunta-input"
-              />
-              <button className="aguinaldo-btn-perguntar" onClick={() => fazerPergunta()} disabled={!pergunta.trim()}>Perguntar</button>
-            </div>
-          </>
+          <div className="aguinaldo-pergunta-input-wrap">
+            <input
+              value={pergunta}
+              onChange={(e) => setPergunta(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
+              onFocus={() => setPergunta(pergunta)}
+              placeholder="Escreva sua pergunta para a MAX..."
+              className="aguinaldo-pergunta-input"
+              id="max-input"
+            />
+            <button className="aguinaldo-btn-perguntar" onClick={() => fazerPergunta()} disabled={!pergunta.trim()}>Perguntar</button>
+          </div>
         )}
+
+        {!resposta && !carregando && (
+          <div className="aguinaldo-sugestoes mt-12">
+            {sugestoes.map((sugestao) => (
+              <button key={sugestao} className="aguinaldo-sugestao-btn" onClick={() => fazerPergunta(sugestao)}>{sugestao}</button>
+            ))}
+          </div>
+        )}
+
         {carregando && <div className="aguinaldo-carregando"><div className="fs-14 text-muted mt-12">MAX está analisando...</div></div>}
         {resposta && !carregando && (
           <div className="aguinaldo-resposta">

@@ -65,7 +65,7 @@ export default function Sidebar() {
 
         {usuario.role === 'admin' && (
           <NavLink to="/ia" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
-            IA
+            MAX IA
           </NavLink>
         )}
 

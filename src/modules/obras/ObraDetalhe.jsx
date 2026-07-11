@@ -30,14 +30,26 @@ function ObsInterna({ obra }) {
     salvarObsInterna(obra.id, obra.etapa, valor);
   }
 
+  const [salvo, setSalvo] = useState(false);
+
   return (
-    <textarea
-      className="obs-interna-textarea"
-      value={obs}
-      onChange={(e) => salvar(e.target.value)}
-      placeholder="Anote aqui observações, pendências ou lembretes desta etapa. Este campo se apaga quando a etapa avançar."
-      rows={3}
-    />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <textarea
+        className="obs-interna-textarea"
+        value={obs}
+        onChange={(e) => { setObs(e.target.value); setSalvo(false); }}
+        placeholder="Anote aqui observações, pendências ou lembretes desta etapa. Este campo se apaga quando a etapa avançar."
+        rows={3}
+      />
+      <button
+        className="btn btn-primary btn-sm"
+        style={{ alignSelf: 'flex-end' }}
+        onClick={() => { salvar(obs); setSalvo(true); setTimeout(() => setSalvo(false), 2000); }}
+        disabled={!obs.trim()}
+      >
+        {salvo ? '✓ Salvo' : 'Salvar'}
+      </button>
+    </div>
   );
 }
 
