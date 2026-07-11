@@ -50,6 +50,7 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   const [resposta, setResposta] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [parecer, setParecer] = useState('');
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
   const hojeIso = new Date().toISOString().split('T')[0];
   const obrasTotais = obras.filter((obra) => !obra.arquivado);
@@ -147,34 +148,28 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
         <div className="aguinaldo-saudacao">{saudacao}, Aguinaldo.</div>
         <div className="aguinaldo-subtitulo">Resumo executivo da Maxibell hoje</div>
 
-        <div className="aguinaldo-nav-grid">
-          <button className="aguinaldo-nav-btn" onClick={() => setSecao('producao')}>
-            <span className="aguinaldo-nav-label">Produção</span>
-          </button>
-          <button className="aguinaldo-nav-btn" onClick={() => setSecao('empresa')}>
-            <span className="aguinaldo-nav-label">Empresa</span>
-          </button>
-          <button className="aguinaldo-nav-btn" onClick={() => setSecao('equipe')}>
-            <span className="aguinaldo-nav-label">Equipe</span>
-          </button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => setSecao('producao')}>Produção</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setSecao('empresa')}>Empresa</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setSecao('equipe')}>Equipe</button>
         </div>
 
         <div className="aguinaldo-status-grid">
-          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
-            <span className="status-numero" style={{ fontSize: 22 }}>{obrasAtivas.length}</span>
-            <span className="status-label">obras em andamento</span>
+          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
+            <span className="status-numero" style={{ fontSize: 18 }}>{obrasAtivas.length}</span>
+            <span className="status-label" style={{ fontSize: 11 }}>obras em andamento</span>
           </div>
-          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
-            <span className="status-numero" style={{ fontSize: 22 }}>{Object.values(gruposProducao).reduce((acc, grupo) => acc + grupo.obras.length, 0)}</span>
-            <span className="status-label">em produção, compra, projeto ou atraso</span>
+          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
+            <span className="status-numero" style={{ fontSize: 18 }}>{Object.values(gruposProducao).reduce((acc, grupo) => acc + grupo.obras.length, 0)}</span>
+            <span className="status-label" style={{ fontSize: 11 }}>produção / compra / projeto / atraso</span>
           </div>
-          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
-            <span className="status-numero" style={{ fontSize: 22 }}>{obrasFinalizadas.length}</span>
-            <span className="status-label">obras finalizadas</span>
+          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
+            <span className="status-numero" style={{ fontSize: 18 }}>{obrasFinalizadas.length}</span>
+            <span className="status-label" style={{ fontSize: 11 }}>obras finalizadas</span>
           </div>
-          <div className="aguinaldo-status-card" style={{ padding: '10px 14px' }}>
-            <span className="status-numero valor" style={{ fontSize: 18 }}>{formatarValor(dadosFinanceiros.totalVendas)}</span>
-            <span className="status-label">vendas este mês</span>
+          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
+            <span className="status-numero valor" style={{ fontSize: 15 }}>{formatarValor(dadosFinanceiros.totalVendas)}</span>
+            <span className="status-label" style={{ fontSize: 11 }}>vendas este mês</span>
           </div>
         </div>
 
@@ -399,25 +394,27 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
         )}
 
         {!resposta && !carregando && (
-          <div className="aguinaldo-pergunta-input-wrap">
-            <input
-              value={pergunta}
-              onChange={(e) => setPergunta(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
-              onFocus={() => setPergunta(pergunta)}
-              placeholder="Escreva sua pergunta para a MAX..."
-              className="aguinaldo-pergunta-input"
-              id="max-input"
-            />
-            <button className="aguinaldo-btn-perguntar" onClick={() => fazerPergunta()} disabled={!pergunta.trim()}>Perguntar</button>
-          </div>
-        )}
-
-        {!resposta && !carregando && (
-          <div className="aguinaldo-sugestoes mt-12">
-            {sugestoes.map((sugestao) => (
-              <button key={sugestao} className="aguinaldo-sugestao-btn" onClick={() => fazerPergunta(sugestao)}>{sugestao}</button>
-            ))}
+          <div style={{ position: 'relative' }}>
+            <div className="aguinaldo-pergunta-input-wrap">
+              <input
+                value={pergunta}
+                onChange={(e) => setPergunta(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
+                onFocus={() => setMostrarSugestoes(true)}
+                onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                placeholder="Escreva sua pergunta para a MAX..."
+                className="aguinaldo-pergunta-input"
+                id="max-input"
+              />
+              <button className="aguinaldo-btn-perguntar" onClick={() => fazerPergunta()} disabled={!pergunta.trim()}>Perguntar</button>
+            </div>
+            {mostrarSugestoes && (
+              <div className="aguinaldo-sugestoes-dropdown">
+                {sugestoes.map((sugestao) => (
+                  <button key={sugestao} className="aguinaldo-sugestao-btn" onMouseDown={() => fazerPergunta(sugestao)}>{sugestao}</button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

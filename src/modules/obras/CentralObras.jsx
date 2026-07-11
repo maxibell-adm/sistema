@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { GRUPOS_KANBAN } from '@/config/etapas.js';
@@ -20,6 +20,27 @@ export default function CentralObras() {
   const [dragModal, setDragModal] = useState(null);
   const [mostrarFinalizados, setMostrarFinalizados] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const fullscreenRef = useRef(null);
+
+  const entrarFullscreen = useCallback(() => {
+    setFullscreen(true);
+    setTimeout(() => {
+      fullscreenRef.current?.requestFullscreen?.();
+    }, 0);
+  }, []);
+
+  const sairFullscreen = useCallback(() => {
+    if (document.fullscreenElement) document.exitFullscreen();
+    setFullscreen(false);
+  }, []);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      if (!document.fullscreenElement) setFullscreen(false);
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
 
   const gruposDisponiveis = usuario.role === 'operacional'
     ? {
@@ -136,7 +157,7 @@ export default function CentralObras() {
           <div className="kanban-toolbar sticky">
             {renderFiltros()}
             {renderMetricas()}
-            <Button variant="danger" size="sm" onClick={() => setFullscreen(true)} title="Tela cheia">Tela Cheia</Button>
+            <Button variant="danger" size="sm" onClick={entrarFullscreen} title="Tela cheia">Tela Cheia</Button>
           </div>
 
           {usuario.role === 'medicao' && obrasComPendenciaMatheus.length > 0 && (
@@ -161,9 +182,9 @@ export default function CentralObras() {
       )}
 
       {fullscreen && createPortal(
-        <div className="kanban-fullscreen-overlay">
+        <div className="kanban-fullscreen-overlay" ref={fullscreenRef}>
           <div className="kanban-fullscreen-header">
-            <button className="btn btn-danger btn-sm" onClick={() => setFullscreen(false)}>Sair da tela cheia</button>
+            <button className="btn btn-danger btn-sm" onClick={sairFullscreen}>Sair da tela cheia</button>
             {renderFiltros()}
             <div className="kanban-metricas-right">
               <span className="metrica-mini-texto">{ativas.length} ativas</span>
