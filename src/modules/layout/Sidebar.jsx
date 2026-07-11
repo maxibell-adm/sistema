@@ -1,0 +1,114 @@
+import { NavLink } from 'react-router-dom';
+import { useAuth } from '@/modules/auth/AuthContext.jsx';
+import QuickActions from './QuickActions.jsx';
+
+export default function Sidebar() {
+  const { usuario, logout } = useAuth();
+
+  if (usuario.role === 'supervisor') {
+    return (
+      <aside className="sidebar">
+        <div className="sidebar-brand">
+          <div className="sidebar-brand-nome">MAXIBELL</div>
+          <div className="sidebar-brand-sub">Portas e Janelas</div>
+        </div>
+        <div className="sidebar-usuario">
+          <div className="avatar" style={{ background: usuario.cor }}>{usuario.avatar}</div>
+          <div>
+            <div className="sidebar-usuario-nome">{usuario.nome}</div>
+            <div className="sidebar-usuario-cargo">{usuario.cargo}</div>
+          </div>
+        </div>
+        <div className="sidebar-footer">
+          <button className="btn-sair" onClick={logout}>Sair</button>
+        </div>
+      </aside>
+    );
+  }
+
+  return (
+    <aside className="sidebar">
+      <div className="sidebar-brand">
+        <div className="sidebar-brand-nome">MAXIBELL</div>
+        <div className="sidebar-brand-sub">Portas e Janelas</div>
+      </div>
+      <div className="sidebar-usuario">
+        <div className="avatar" style={{ background: usuario.cor }}>{usuario.avatar}</div>
+        <div>
+          <div className="sidebar-usuario-nome">{usuario.nome}</div>
+          <div className="sidebar-usuario-cargo">{usuario.cargo}</div>
+        </div>
+      </div>
+
+      <nav className="sidebar-nav">
+        <div className="sidebar-nav-titulo">Operação</div>
+        <NavLink to="/" end className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+          Painel
+        </NavLink>
+        {!['comercial', 'projetos'].includes(usuario.role) && (
+          <NavLink to="/obras" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+            Central de Obras
+          </NavLink>
+        )}
+        {usuario.role !== 'projetos' && (
+          <NavLink to="/agenda" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+            Agenda
+          </NavLink>
+        )}
+
+        {usuario.role === 'admin' && (
+          <NavLink to="/ia" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+            IA
+          </NavLink>
+        )}
+
+        <div className="sidebar-nav-titulo">Atalhos</div>
+        <QuickActions inline />
+
+        {usuario.role === 'admin' && (
+          <>
+            <NavLink to="/admin/usuarios" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+              Colaboradores
+            </NavLink>
+            <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" className="nav-btn">Drive</a>
+            <NavLink
+              to="/projetos-empresa"
+              className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}
+              onClick={(e) => e.preventDefault()}
+              title="Em breve"
+            >
+              Projetos
+            </NavLink>
+            <a href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#followup" target="_blank" rel="noopener noreferrer" className="nav-btn">
+              Follow Up
+            </a>
+            <NavLink to="/biblioteca-ia" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+              Biblioteca IA
+            </NavLink>
+            <a href="https://maxibell-adm.github.io/Maxibell/aplicativos/central-contratos.html" target="_blank" rel="noopener noreferrer" className="nav-btn">
+              Gerador de Contratos
+            </a>
+          </>
+        )}
+
+        {usuario.role === 'projetos' && (
+          <>
+            <a href="https://maxibell-adm.github.io/projetos/" target="_blank" rel="noopener noreferrer" className="nav-btn">Projetos</a>
+            <a href="https://maxibell-adm.github.io/Maxibell/aplicativos/validacao-projetos.html" target="_blank" rel="noopener noreferrer" className="nav-btn">Conferência</a>
+          </>
+        )}
+
+        {usuario.role === 'comercial' && (
+          <>
+            <a href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#followup" target="_blank" rel="noopener noreferrer" className="nav-btn">Follow-up</a>
+            <a href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#faq" target="_blank" rel="noopener noreferrer" className="nav-btn">FAQ</a>
+          </>
+        )}
+      </nav>
+
+      <div className="sidebar-footer">
+        <button className="btn-sair" onClick={logout}>Sair</button>
+      </div>
+    </aside>
+  );
+}
