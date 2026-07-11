@@ -94,21 +94,21 @@ export default function CentralObras() {
   function renderMetricas() {
     return (
       <div className="kanban-metricas-right">
-        <button className={`metrica-mini ${filtroAtivo === 'ativas' ? 'ativo' : ''}`} onClick={() => setFiltroAtivo(filtroAtivo === 'ativas' ? 'todos' : 'ativas')}>
+        <button className={`metrica-mini ${filtroAtivo === 'ativas' ? 'ativo' : ''}`} style={{ minWidth: 72, whiteSpace: 'nowrap' }} onClick={() => setFiltroAtivo(filtroAtivo === 'ativas' ? 'todos' : 'ativas')}>
           <span className="mm-valor">{ativas.length}</span><span className="mm-label">Em andamento</span>
         </button>
-        <button className={`metrica-mini vermelho ${filtroAtivo === 'atrasadas' ? 'ativo' : ''}`} onClick={() => setFiltroAtivo(filtroAtivo === 'atrasadas' ? 'todos' : 'atrasadas')}>
+        <button className={`metrica-mini vermelho ${filtroAtivo === 'atrasadas' ? 'ativo' : ''}`} style={{ minWidth: 72, whiteSpace: 'nowrap' }} onClick={() => setFiltroAtivo(filtroAtivo === 'atrasadas' ? 'todos' : 'atrasadas')}>
           <span className="mm-valor">{atrasadas.length}</span><span className="mm-label">Atrasadas</span>
         </button>
-        <button className={`metrica-mini laranja ${filtroAtivo === 'compras' ? 'ativo' : ''}`} onClick={() => setFiltroAtivo(filtroAtivo === 'compras' ? 'todos' : 'compras')}>
+        <button className={`metrica-mini laranja ${filtroAtivo === 'compras' ? 'ativo' : ''}`} style={{ minWidth: 72, whiteSpace: 'nowrap' }} onClick={() => setFiltroAtivo(filtroAtivo === 'compras' ? 'todos' : 'compras')}>
           <span className="mm-valor">{emCompras.length}</span><span className="mm-label">Compras</span>
         </button>
-        <button className="metrica-mini cinza" onClick={() => setFiltroAtivo('todos')}>
+        <button className="metrica-mini cinza" style={{ minWidth: 72, whiteSpace: 'nowrap' }} onClick={() => setFiltroAtivo('todos')}>
           <span className="mm-valor">{obrasNaoArquivadas.length}</span><span className="mm-label">Total</span>
         </button>
         <button
           className={`metrica-mini ${mostrarFinalizados ? 'ativo' : ''} ${filtroAtivo === 'finalizados' ? 'ativo' : ''}`}
-          style={mostrarFinalizados ? { borderColor: 'var(--verde)', background: 'var(--verde-claro)' } : {}}
+          style={mostrarFinalizados ? { minWidth: 72, whiteSpace: 'nowrap', borderColor: 'var(--verde)', background: 'var(--verde-claro)' } : { minWidth: 72, whiteSpace: 'nowrap' }}
           onClick={() => {
             setMostrarFinalizados((valor) => !valor);
             setFiltroAtivo(!mostrarFinalizados ? 'finalizados' : 'todos');

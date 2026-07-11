@@ -172,24 +172,6 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
             <span className="status-label" style={{ fontSize: 11 }}>vendas este mês</span>
           </div>
         </div>
-
-        {insights.length > 0 && (
-          <div className="aguinaldo-secao mb-20">
-            <div className="aguinaldo-secao-titulo">Alertas da MAX</div>
-            {insights.map((insight) => (
-              <div key={insight.id} className="aguinaldo-alerta-card">
-                <div className={`aguinaldo-alerta-tipo tipo-${insight.tipo}`}>{insight.tipo}</div>
-                <div className="aguinaldo-alerta-corpo">
-                  <div className="aguinaldo-alerta-titulo">{insight.titulo}</div>
-                  <div className="aguinaldo-alerta-desc">{textoInsight(insight)}</div>
-                </div>
-                {insight.acao?.obraId && (
-                  <button className="aguinaldo-btn-ver" onClick={() => navigate(`/obras/${insight.acao.obraId}`)}>Ver</button>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     );
   }
@@ -321,30 +303,11 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
         }
       })
       .sort((a, b) => (b.hora || '').localeCompare(a.hora || ''));
-    const funcionarios = ['André', 'Matheus', 'Allana', 'Ana'];
 
     return (
       <div className="aguinaldo-wrap">
         <button className="aguinaldo-voltar" onClick={() => setSecao('home')}>Voltar</button>
         <div className="aguinaldo-secao-titulo">Equipe - últimas 24h</div>
-
-        <div className="aguinaldo-grupos-grid mb-20">
-          {funcionarios.map((nome) => {
-            const eventosFunc = eventos.filter((e) => e.usuario === nome);
-            const obrasResp = obrasAtivas.filter((obra) => obra.responsavel === nome);
-            const atrasadas = obrasResp.filter((obra) => obra.prazo && new Date(`${obra.prazo}T00:00:00`) < new Date()).length;
-            return (
-              <div key={nome} className="aguinaldo-auditoria-card">
-                <div className="fw-700 fs-15">{nome}</div>
-                <div className="fs-13 mt-4">{eventosFunc.length} movimentação(ões) hoje</div>
-                <div className="fs-12 text-muted mt-2">
-                  {obrasResp.length} obra(s) em andamento
-                  {atrasadas > 0 && <span style={{ color: 'var(--vermelho)', marginLeft: 8 }}>{atrasadas} em atraso</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
         <div className="aguinaldo-secao-titulo">Feed de atividades</div>
         {eventos.length ? eventos.slice(0, 30).map((evento, i) => (
@@ -373,7 +336,7 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
     return (
       <div className="aguinaldo-wrap">
         <button className="aguinaldo-voltar" onClick={() => { setSecao('home'); setResposta(''); }}>← Voltar</button>
-        <div className="aguinaldo-secao-titulo" style={{ fontSize: 20, marginBottom: 16 }}>MAX IA</div>
+        <div className="page-title">MAX IA</div>
 
         {insights.length > 0 && !resposta && !carregando && (
           <div className="aguinaldo-secao mb-20">
@@ -401,7 +364,7 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
                 onChange={(e) => setPergunta(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
                 onFocus={() => setMostrarSugestoes(true)}
-                onBlur={() => setTimeout(() => setMostrarSugestoes(false), 200)}
+                onBlur={() => setTimeout(() => setMostrarSugestoes(false), 150)}
                 placeholder="Escreva sua pergunta para a MAX..."
                 className="aguinaldo-pergunta-input"
                 id="max-input"
