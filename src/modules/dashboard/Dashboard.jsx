@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { carregarUsuarios } from '@/config/usuarios.js';
 import { ETAPAS, labelEtapa } from '@/config/etapas.js';
@@ -23,7 +23,7 @@ const LEMBRETES_FIXOS_MATHEUS = [
 const COMPROMISSOS_FIXOS_ANA = [
   { id: 'ana-1', emoji: '📋', texto: 'Conferir conversas do dia anterior' },
   { id: 'ana-2', emoji: '✅', texto: 'Conferir tarefas vencidas no KOMMO' },
-  { id: 'ana-3', emoji: '💬', texto: 'Responder mensagens pendentes' },
+  { id: 'ana-3', emoji: '🙬', texto: 'Responder mensagens pendentes' },
 ];
 
 const TEMAS_SEMANA_ANA = {
@@ -52,19 +52,19 @@ const TEMAS_SEMANA_ANDRE = {
     itens: ['Iniciar a produção da semana', 'Conferir materiais recebidos', 'Conferir pendências de fornecedores (perfis, vidros e acessórios)'],
   },
   2: {
-    emoji: '⚙️',
+    emoji: 'âšâ„¢ï¸',
     titulo: 'Terça — Produção e Liberação',
     objetivo: 'Garantir obras prontas para produção.',
     itens: ['Conferir grupo "Obras a Produzir"', 'Conferir e liberar obras para produção', 'Liberar contramarcos', 'Separar perfis do estocão', 'Consolidar lista de compras da semana'],
   },
   3: {
-    emoji: '💻',
+    emoji: '',
     titulo: 'Quarta — Administração e VHSYS',
     objetivo: 'Nenhum pedido desatualizado.',
     itens: ['Conferir grupo "Pedidos sem Medidas"', 'Lançar novos pedidos no VHSYS', 'Inserir novas obras na Central de Obras', 'Atualizar completamente a planilha da empresa', 'Conferir grupo de instalação e verificar pendências'],
   },
   4: {
-    emoji: '🗓️',
+    emoji: '🗓ï¸',
     titulo: 'Quinta — Materiais e Programação',
     objetivo: 'Programar a próxima semana.',
     itens: ['Conferir materiais ainda não entregues', 'Conferir materiais críticos em estoque', 'Iniciar a programação da próxima semana (obras a produzir)', 'Iniciar a programação da próxima semana (obras a instalar)', 'Verificar tipologias em atraso', 'Verificar projetos em atraso'],
@@ -207,13 +207,50 @@ function PendenciasPorFuncionario({ obras, usuario }) {
         </div>
       )}
       {pendencias.length ? pendencias.map(({ obra, pendencias: pends }) => (
-        <button className="aviso-obra-card" key={obra.id} onClick={() => navigate(`/obras/${obra.id}`)}>
-          <div className="aviso-obra-header">
-            <span className="fw-700">{obra.pp} - {obra.cliente}</span>
-            <span className="mini-avatar" style={{ background: usuariosAtivos.find((u) => u.nome === obra.responsavel)?.cor }}>{obra.responsavel?.charAt(0)}</span>
-            <span className="text-muted fs-11">{obra.responsavel}</span>
+        <button
+          className="aviso-obra-card"
+          key={obra.id}
+          onClick={() => navigate(`/obras/${obra.id}`)}
+          style={{
+            borderLeft: '4px solid var(--laranja)',
+            borderRadius: 10,
+            padding: '14px 16px',
+            marginBottom: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+            background: 'var(--branco)',
+            border: '1px solid var(--cinza-borda)',
+            borderLeftWidth: 4,
+            borderLeftColor: 'var(--laranja)',
+            width: '100%',
+            textAlign: 'left',
+            cursor: 'pointer',
+            transition: '.15s',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--azul)' }}>{obra.pp}</span>
+            <span style={{ fontSize: 13, color: 'var(--cinza-escuro)', flex: 1 }}>{obra.cliente}</span>
+            <span
+              className="mini-avatar"
+              style={{ background: usuariosAtivos.find((u) => u.nome === obra.responsavel)?.cor, flexShrink: 0 }}
+            >
+              {obra.responsavel?.charAt(0)}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--cinza-medio)', flexShrink: 0 }}>{obra.responsavel}</span>
           </div>
-          {pends.map((p, i) => <div key={i} className={`pendencia-item pendencia-${p.tipo}`}>{p.emoji} {p.texto}</div>)}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {pends.map((p, i) => (
+              <div
+                key={i}
+                className={`pendencia-item pendencia-${p.tipo}`}
+                style={{ fontSize: 12, color: p.tipo === 'critico' ? 'var(--vermelho)' : 'var(--cinza-escuro)' }}
+              >
+                {p.emoji} {p.texto}
+              </div>
+            ))}
+          </div>
         </button>
       )) : <div className="empty-state mt-8">Nenhuma pendência no momento.</div>}
     </section>
@@ -341,7 +378,7 @@ function UltimosAcontecimentos({ obras }) {
   return (
     <section className="mb-20">
       <div className="section-hdr mb-12">
-        <div className="section-titulo">⚡ Últimos Acontecimentos (24h)</div>
+        <div className="section-titulo">⚡ Ášltimos Acontecimentos (24h)</div>
       </div>
       {eventos.length ? eventos.slice(0, 20).map((e, i) => (
         <div key={i} className="acontecimento-item">
@@ -469,7 +506,7 @@ export default function Dashboard() {
                   </div>
                 ))}
                 <div className="fs-11 text-muted mt-8">
-                  Lembre-se: avisar todos os clientes com antecedência.
+                  Lembre-se: avisar todos os clientes com antecedÁªncia.
                 </div>
               </div>
             )}
@@ -478,7 +515,6 @@ export default function Dashboard() {
         <div className="flex-between mb-16">
           <div className="segmented">
             <button className={`btn btn-sm ${telaAna === 1 ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTelaAna(1)}>Hoje</button>
-            <button className={`btn btn-sm ${telaAna === 2 ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTelaAna(2)}>Agenda</button>
           </div>
         </div>
 
@@ -537,13 +573,6 @@ export default function Dashboard() {
           </div>
         )}
 
-        {telaAna === 2 && (
-          <div className="agenda-visual-grid">
-            {atividades.map((atividade) => <AgendaVisualCard atividade={atividade} key={atividade.id} onClick={() => abrirObraDaAtividade(atividade)} />)}
-            {!atividades.length && <div className="empty-state">Nenhuma atividade programada.</div>}
-          </div>
-        )}
-
 </>
     );
   }
@@ -565,7 +594,7 @@ export default function Dashboard() {
         .map((o) => ({
           obra: o,
           texto: o.ehCardOC
-            ? `Card OC - ${o.ocorrenciaTipo || 'ocorrência'} de ${o.obraMaePP}`
+            ? `Card OC - ${o.ocorrenciaTipo || 'ocorrÁªncia'} de ${o.obraMaePP}`
             : 'VHSYS não preenchido - cadastrar pedido',
         })),
     ];
@@ -648,8 +677,8 @@ export default function Dashboard() {
       { emoji: '📱', texto: 'Conteúdo do Dia - Marketing' },
       ...({
         1: [
-          { emoji: '🗓️', texto: 'Alinhamento semanal - Matheus' },
-          { emoji: '🗓️', texto: 'Alinhamento semanal - Ana' },
+          { emoji: '🗓ï¸', texto: 'Alinhamento semanal - Matheus' },
+          { emoji: '🗓ï¸', texto: 'Alinhamento semanal - Ana' },
           { emoji: '🏭', texto: 'Programação da semana - Fábrica' },
         ],
         2: [
@@ -671,33 +700,56 @@ export default function Dashboard() {
     return (
       <>
         <div className="alvaro-top-btns">
-          <Button variant={agendaPainel === 'hoje' ? 'primary' : 'secondary'} size="sm" onClick={() => setAgendaPainel(agendaPainel === 'hoje' ? null : 'hoje')}>Hoje</Button>
-          <Button variant={agendaPainel === 'amanha' ? 'primary' : 'secondary'} size="sm" onClick={() => setAgendaPainel(agendaPainel === 'amanha' ? null : 'amanha')}>Amanhã</Button>
-          <Button variant="secondary" size="sm" onClick={() => setTelaAlvaro(telaAlvaro === 'notificar' ? 1 : 'notificar')}>Notificar</Button>
-          <Button variant="secondary" size="sm" onClick={() => setTelaAlvaro(telaAlvaro === 'particular' ? 1 : 'particular')}>Particular</Button>
-          
+          <Button
+            variant={agendaPainel === 'hoje' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => {
+              setAgendaPainel(agendaPainel === 'hoje' ? null : 'hoje');
+              setTelaAlvaro(1);
+            }}
+          >Hoje</Button>
+          <Button
+            variant={agendaPainel === 'amanha' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => {
+              setAgendaPainel(agendaPainel === 'amanha' ? null : 'amanha');
+              setTelaAlvaro(1);
+            }}
+          >Amanhã</Button>
+          <Button
+            variant={telaAlvaro === 'notificar' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => {
+              setTelaAlvaro(telaAlvaro === 'notificar' ? 1 : 'notificar');
+              setAgendaPainel(null);
+            }}
+          >Notificar</Button>
+          <Button
+            variant={telaAlvaro === 'particular' ? 'primary' : 'secondary'}
+            size="sm"
+            onClick={() => {
+              setTelaAlvaro(telaAlvaro === 'particular' ? 1 : 'particular');
+              setAgendaPainel(null);
+            }}
+          >Particular</Button>
         </div>
         {telaAlvaro === 1 && (
           <>
-            {lembretesHoje.length > 0 && (
-              <section className="card card-pad mb-16">
-                <div className="section-titulo mb-12">📌 Lembretes de hoje</div>
-                {lembretesHoje.map((lembrete, i) => (
-                  <CompromissoCheck key={i} item={{ id: `alvaro-${i}`, texto: `${lembrete.emoji} ${lembrete.texto}` }} />
-                ))}
-              </section>
-            )}
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">📌 Lembretes e alertas de hoje</div>
+              {lembretesHoje.map((lembrete, i) => (
+                <CompromissoCheck key={i} item={{ id: `alvaro-${i}`, texto: `${lembrete.emoji} ${lembrete.texto}` }} />
+              ))}
+              <LembretesRecebidos usuario={usuario} inline />
+            </section>
 
-            <LembretesRecebidos usuario={usuario} />
-
-            {agendaPainel && (
-              <section className="card card-pad mb-16">
-                <div className="section-titulo mb-12">
-                  📅 Agenda de {agendaPainel === 'hoje' ? 'hoje' : 'amanhã'}
-                </div>
-                {atividadesPainelAlvaro.length ? (
-                  <div className="agenda-hoje-horizontal">
-                    {atividadesPainelAlvaro.map((atividade) => (
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">📅 Agenda de hoje</div>
+              {atividadesPerfil.filter((a) => a.data === hojeIso).length ? (
+                <div className="agenda-hoje-horizontal">
+                  {atividadesPerfil
+                    .filter((a) => a.data === hojeIso)
+                    .map((atividade) => (
                       <button className="agenda-hoje-card" key={atividade.id} onClick={() => abrirObraDaAtividade(atividade)}>
                         <span className="ativ-tipo-mini">{atividade.tipo}</span>
                         <span className="ativ-pp-mini">{atividade.pp} — {atividade.cliente}</span>
@@ -705,9 +757,30 @@ export default function Dashboard() {
                         <span className="ativ-resp-mini">{atividade.responsavelExecucao || atividade.responsavel}</span>
                       </button>
                     ))}
+                </div>
+              ) : (
+                <div className="empty-state">Nenhuma atividade programada para hoje.</div>
+              )}
+            </section>
+
+            {agendaPainel === 'amanha' && (
+              <section className="card card-pad mb-16">
+                <div className="section-titulo mb-12">📅 Agenda de amanhã</div>
+                {atividadesPerfil.filter((a) => a.data === amanhaIso).length ? (
+                  <div className="agenda-hoje-horizontal">
+                    {atividadesPerfil
+                      .filter((a) => a.data === amanhaIso)
+                      .map((atividade) => (
+                        <button className="agenda-hoje-card" key={atividade.id} onClick={() => abrirObraDaAtividade(atividade)}>
+                          <span className="ativ-tipo-mini">{atividade.tipo}</span>
+                          <span className="ativ-pp-mini">{atividade.pp} — {atividade.cliente}</span>
+                          <span className="ativ-cidade-mini">📍 {atividade.cidade}</span>
+                          <span className="ativ-resp-mini">{atividade.responsavelExecucao || atividade.responsavel}</span>
+                        </button>
+                      ))}
                   </div>
                 ) : (
-                  <div className="empty-state">Nenhuma atividade programada.</div>
+                  <div className="empty-state">Nenhuma atividade programada para amanhã.</div>
                 )}
               </section>
             )}
@@ -723,14 +796,14 @@ export default function Dashboard() {
         )}
         {telaAlvaro === 'notificar' && (
           <section>
-            <div className="page-title fs-14 mb-12">📣 Notificar equipe</div>
+            <div className="page-title mb-4">📣 Notificar equipe</div>
             <div className="text-muted fs-12 mb-16">Obras que precisam de um toque para avançar.</div>
             <PendenciasPorFuncionario obras={obrasVisiveis} usuario={usuario} />
           </section>
         )}
         {telaAlvaro === 'particular' && (
           <section>
-            <div className="section-titulo mb-12">🔒 Lembretes Particulares</div>
+            <div className="section-titulo mb-12">🔙 Lembretes Particulares</div>
             <LembretesParticulares />
           </section>
         )}

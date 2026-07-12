@@ -14,19 +14,16 @@ const TAGS_LEMBRETE = [
 
 export default function Lembretes() {
   const { usuario } = useAuth();
-  const responsaveis = carregarUsuarios().filter((item) => item.ativo).map((item) => item.nome);
+  const responsaveis = carregarUsuarios().filter((u) => u.ativo).map((u) => u.nome);
   const [lembretes, setLembretes] = useState(() => {
     const salvo = localStorage.getItem('maxibell.lembretes.app');
     return salvo ? JSON.parse(salvo) : [];
   });
   const [form, setForm] = useState({
-    titulo: '',
-    descricao: '',
-    responsavel: usuario.nome,
-    observacao: '',
-    tag: 'geral',
+    titulo: '', descricao: '', responsavel: usuario.nome, observacao: '', tag: 'geral',
   });
   const [filtroTag, setFiltroTag] = useState('todos');
+  const [mostrarForm, setMostrarForm] = useState(false);
 
   function set(campo, valor) {
     setForm((atual) => ({ ...atual, [campo]: valor }));
@@ -48,76 +45,88 @@ export default function Lembretes() {
     };
     persistir([novo, ...lembretes]);
     setForm({ titulo: '', descricao: '', responsavel: usuario.nome, observacao: '', tag: 'geral' });
+    setMostrarForm(false);
   }
 
   function toggleConcluido(id) {
-    persistir(lembretes.map((lembrete) => (
-      lembrete.id === id ? { ...lembrete, concluido: !lembrete.concluido } : lembrete
-    )));
+    persistir(lembretes.map((l) => l.id === id ? { ...l, concluido: !l.concluido } : l));
   }
 
   function remover(id) {
-    persistir(lembretes.filter((lembrete) => lembrete.id !== id));
+    persistir(lembretes.filter((l) => l.id !== id));
   }
 
   const lembretesVisiveis = filtroTag === 'todos'
     ? lembretes
-    : lembretes.filter((lembrete) => lembrete.tag === filtroTag);
+    : lembretes.filter((l) => l.tag === filtroTag);
 
   return (
     <>
-      <div className="topbar-titulo-pagina">Lembretes</div>
-
-      <section className="card card-pad mb-20">
-        <div className="section-titulo mb-12">+ Novo Lembrete</div>
-        <div className="form-grid">
-          <div className="form-field full">
-            <label>Título *</label>
-            <input value={form.titulo} onChange={(e) => set('titulo', e.target.value)} placeholder="Título do lembrete" autoComplete="off" />
-          </div>
-          <div className="form-field full">
-            <label>Descrição</label>
-            <textarea value={form.descricao} onChange={(e) => set('descricao', e.target.value)} placeholder="Descreva o lembrete..." rows={2} />
-          </div>
-          <div className="form-field">
-            <label>Responsável</label>
-            <select value={form.responsavel} onChange={(e) => set('responsavel', e.target.value)}>
-              {responsaveis.map((responsavel) => <option key={responsavel} value={responsavel}>{responsavel}</option>)}
-            </select>
-          </div>
-          <div className="form-field">
-            <label>Tag</label>
-            <select value={form.tag} onChange={(e) => set('tag', e.target.value)}>
-              {TAGS_LEMBRETE.map((tag) => <option key={tag.id} value={tag.id}>{tag.label}</option>)}
-            </select>
-          </div>
-          <div className="form-field full">
-            <label>Observação</label>
-            <textarea value={form.observacao} onChange={(e) => set('observacao', e.target.value)} placeholder="Campo livre para anotações..." rows={2} />
-          </div>
+      {/* Filtros + botão novo */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div className="filtro-pills" style={{ flex: 1, marginBottom: 0 }}>
+          <button className={`filtro-pill ${filtroTag === 'todos' ? 'ativo' : ''}`} onClick={() => setFiltroTag('todos')}>Todos</button>
+          {TAGS_LEMBRETE.map((tag) => (
+            <button
+              key={tag.id}
+              className={`filtro-pill ${filtroTag === tag.id ? 'ativo' : ''}`}
+              onClick={() => setFiltroTag(tag.id)}
+              style={filtroTag === tag.id ? { background: tag.cor, color: '#fff', borderColor: tag.cor } : {}}
+            >
+              {tag.label}
+            </button>
+          ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-          <button className="btn btn-primary" onClick={salvar}>Salvar Lembrete</button>
-        </div>
-      </section>
-
-      <div className="filtro-pills mb-16">
-        <button className={`filtro-pill ${filtroTag === 'todos' ? 'ativo' : ''}`} onClick={() => setFiltroTag('todos')}>Todos</button>
-        {TAGS_LEMBRETE.map((tag) => (
-          <button
-            key={tag.id}
-            className={`filtro-pill ${filtroTag === tag.id ? 'ativo' : ''}`}
-            onClick={() => setFiltroTag(tag.id)}
-            style={filtroTag === tag.id ? { background: tag.cor, color: '#fff', borderColor: tag.cor } : {}}
-          >
-            {tag.label}
-          </button>
-        ))}
+        <button
+          className="btn btn-primary btn-sm"
+          style={{ flexShrink: 0 }}
+          onClick={() => setMostrarForm((v) => !v)}
+        >
+          {mostrarForm ? '✕ Fechar' : '+ Novo Lembrete'}
+        </button>
       </div>
 
+      {/* Formulário — aparece ao clicar no botão */}
+      {mostrarForm && (
+        <section className="card card-pad mb-20">
+          <div className="section-titulo mb-12">Novo Lembrete</div>
+          <div className="form-grid">
+            <div className="form-field full">
+              <label>Título *</label>
+              <input value={form.titulo} onChange={(e) => set('titulo', e.target.value)} placeholder="Título do lembrete" autoComplete="off" />
+            </div>
+            <div className="form-field full">
+              <label>Descrição</label>
+              <textarea value={form.descricao} onChange={(e) => set('descricao', e.target.value)} placeholder="Descreva o lembrete..." rows={2} />
+            </div>
+            <div className="form-field">
+              <label>Responsável</label>
+              <select value={form.responsavel} onChange={(e) => set('responsavel', e.target.value)}>
+                {responsaveis.map((r) => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div className="form-field">
+              <label>Tag</label>
+              <select value={form.tag} onChange={(e) => set('tag', e.target.value)}>
+                {TAGS_LEMBRETE.map((tag) => <option key={tag.id} value={tag.id}>{tag.label}</option>)}
+              </select>
+            </div>
+            <div className="form-field full">
+              <label>Observação</label>
+              <textarea value={form.observacao} onChange={(e) => set('observacao', e.target.value)} placeholder="Campo livre para anotações..." rows={2} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+            <button className="btn btn-secondary btn-sm" onClick={() => setMostrarForm(false)}>Cancelar</button>
+            <button className="btn btn-primary" onClick={salvar}>Salvar Lembrete</button>
+          </div>
+        </section>
+      )}
+
+      {/* Lista de lembretes */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {lembretesVisiveis.map((lembrete) => {
-          const tag = TAGS_LEMBRETE.find((item) => item.id === lembrete.tag);
+          const tag = TAGS_LEMBRETE.find((t) => t.id === lembrete.tag);
           return (
             <div
               key={lembrete.id}
@@ -139,7 +148,7 @@ export default function Lembretes() {
               {lembrete.descricao && <div className="fs-12 mt-4 text-muted">{lembrete.descricao}</div>}
               {lembrete.observacao && <div className="fs-11 mt-4" style={{ color: 'var(--cinza-medio)', fontStyle: 'italic' }}>{lembrete.observacao}</div>}
               <div className="fs-10 text-muted mt-6">
-                {lembrete.responsavel} - {lembrete.criadoEm}
+                {lembrete.responsavel} · {lembrete.criadoEm}
               </div>
             </div>
           );

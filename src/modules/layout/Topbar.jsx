@@ -7,6 +7,7 @@ import SearchOverlay from '@/modules/ui/SearchOverlay.jsx';
 const TITULOS = {
   '/': '',
   '/dashboard': '',
+  '/lembretes': 'Lembretes',
   '/obras': 'Central de Obras',
   '/agenda': 'Agenda',
   '/nova-obra': 'Nova Obra',

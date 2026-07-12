@@ -1,11 +1,11 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ETAPAS, labelEtapa } from '@/config/etapas.js';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 import { useObras } from '@/modules/obras/useObras.js';
 import { calcPrazo } from '@/rules/prazosRules.js';
-import { calcularSaudeObra, diasParaPrazoCliente } from '@/rules/eventosRules.js';
+import { diasParaPrazoCliente } from '@/rules/eventosRules.js';
 import { usuarioPorNome } from '@/rules/alertas.js';
 import ArquivosObra from './ArquivosObra.jsx';
 import ChecklistCompras from './ChecklistCompras.jsx';
@@ -38,7 +38,7 @@ function ObsInterna({ obra }) {
         className="obs-interna-textarea"
         value={obs}
         onChange={(e) => { setObs(e.target.value); setSalvo(false); }}
-        placeholder="Anote aqui observações, pendências ou lembretes desta etapa. Este campo se apaga quando a etapa avançar."
+        placeholder="Anote aqui observaÃ§Ãµes, pendÃªncias ou lembretes desta etapa. Este campo se apaga quando a etapa avanÃ§ar."
         rows={3}
       />
       <button
@@ -47,7 +47,7 @@ function ObsInterna({ obra }) {
         onClick={() => { salvar(obs); setSalvo(true); setTimeout(() => setSalvo(false), 2000); }}
         disabled={!obs.trim()}
       >
-        {salvo ? '✓ Salvo' : 'Salvar'}
+        {salvo ? 'âœ“ Salvo' : 'Salvar'}
       </button>
     </div>
   );
@@ -62,12 +62,11 @@ export default function ObraDetalhe() {
   const [confirmarVhsys, setConfirmarVhsys] = useState(null);
   const obra = obrasVisiveis.find((o) => o.id === id);
 
-  if (!obra) return <div className="empty-state">Obra não encontrada ou sem permissão de visualização.</div>;
+  if (!obra) return <div className="empty-state">Obra nÃ£o encontrada ou sem permissÃ£o de visualizaÃ§Ã£o.</div>;
   if (usuario.role === 'projetos') return <ObraDetalheAllana obra={obra} />;
 
   const etapa = ETAPAS.find((e) => e.id === obra.etapa);
   const prazo = calcPrazo(obra.prazo);
-  const saude = calcularSaudeObra(obra);
   const diasCliente = diasParaPrazoCliente(obra.prazoCliente);
   const resp = usuarioPorNome(obra.responsavel);
   const verFinanceiro = ['admin', 'supervisor', 'comercial', 'medicao'].includes(usuario.role);
@@ -104,7 +103,7 @@ export default function ObraDetalhe() {
                     {podeEditarVhsys ? (
                       <input
                         className="vhsys-input"
-                        placeholder="Nº do pedido"
+                        placeholder="NÂº do pedido"
                         value={valorVhsys('vhsysEsquadria')}
                         onChange={(e) => handleVhsysChange('vhsysEsquadria', e.target.value)}
                       />
@@ -118,7 +117,7 @@ export default function ObraDetalhe() {
                       {podeEditarVhsys ? (
                         <input
                           className="vhsys-input"
-                          placeholder="Nº do contramarco"
+                          placeholder="NÂº do contramarco"
                           value={valorVhsys('vhsysContramarco')}
                           onChange={(e) => handleVhsysChange('vhsysContramarco', e.target.value)}
                         />
@@ -130,13 +129,13 @@ export default function ObraDetalhe() {
                 </div>
                 <div className="text-muted">{obra.cidade} - {obra.tipo}</div>
                 <div className="obra-responsavel-destaque">
-                  <span className="fs-12 text-muted">Com quem está:</span>
+                  <span className="fs-12 text-muted">Com quem estÃ¡:</span>
                   <span className="avatar grande" style={{ background: resp.cor }}>{resp.avatar}</span>
                   <span><b>{resp.nome}</b><small>{resp.cargo}</small></span>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                {obra.pendencia?.aberta && <Badge classe="badge-alerta">Pendência</Badge>}
+                {obra.pendencia?.aberta && <Badge classe="badge-alerta">PendÃªncia</Badge>}
                 <Badge classe="badge-info">{labelEtapa(obra.etapa)}</Badge>
                 <Badge classe={prazo.classe}>{prazo.label}</Badge>
               </div>
@@ -152,16 +151,9 @@ export default function ObraDetalhe() {
                 </span>
               )}
             </div>
-            <div className={`saude-obra saude-${saude.nivel}`}>
-              <div className="saude-obra-top">
-                <span>Termômetro da obra</span>
-                <strong>{saude.valor}%</strong>
-              </div>
-              <div className="saude-barra"><span style={{ width: `${saude.valor}%` }} /></div>
-            </div>
             {obra.condicaoEspecial?.ativa && (
               <div className="condicao-especial-box">
-                <div className="section-titulo">Condição especial</div>
+                <div className="section-titulo">CondiÃ§Ã£o especial</div>
                 <div className="text-muted fs-11">Registrada em {obra.condicaoEspecial.registradaEm}</div>
                 <div className="condicao-especial-texto">{obra.condicaoEspecial.texto}</div>
                 {usuario.role === 'admin' && (
@@ -175,7 +167,7 @@ export default function ObraDetalhe() {
           <FasesObra obra={obra} />
           {!!(obra.manutencoes || []).length && (
             <section className="card card-pad mb-16">
-              <div className="section-titulo mb-12">Histórico de manutenções</div>
+              <div className="section-titulo mb-12">HistÃ³rico de manutenÃ§Ãµes</div>
               {(obra.manutencoes || []).map((manutencao) => (
                 <div className="manutencao-vinculada-item" key={manutencao.id}>
                   <strong>{manutencao.data || 'Sem data'} - {manutencao.motivo}</strong>
@@ -192,7 +184,7 @@ export default function ObraDetalhe() {
             <section className="detail-section card card-pad">
               <div className="section-hdr">
                 <div className="section-titulo">Rascunho interno</div>
-                <div className="fs-11 text-muted">Visível só para você e Álvaro. Apaga ao avançar a etapa.</div>
+                <div className="fs-11 text-muted">VisÃ­vel sÃ³ para vocÃª e Ãlvaro. Apaga ao avanÃ§ar a etapa.</div>
               </div>
               <ObsInterna obra={obra} />
             </section>
@@ -205,13 +197,13 @@ export default function ObraDetalhe() {
       {modal && <ModalAvancarEtapa obra={obra} onClose={() => setModal(false)} />}
       {confirmarVhsys && (
         <Modal
-          titulo="Alterar número VHSYS"
+          titulo="Alterar nÃºmero VHSYS"
           onClose={() => setConfirmarVhsys(null)}
-          footer={<><Button variant="secondary" onClick={() => setConfirmarVhsys(null)}>Cancelar</Button><Button variant="warning" onClick={() => { atualizarVhsys(obra.id, confirmarVhsys.campo, confirmarVhsys.novoValor); setConfirmarVhsys(null); }}>Confirmar alteração</Button></>}
+          footer={<><Button variant="secondary" onClick={() => setConfirmarVhsys(null)}>Cancelar</Button><Button variant="warning" onClick={() => { atualizarVhsys(obra.id, confirmarVhsys.campo, confirmarVhsys.novoValor); setConfirmarVhsys(null); }}>Confirmar alteraÃ§Ã£o</Button></>}
         >
-          <p>O número atual é <strong>{confirmarVhsys.valorAtual}</strong>.</p>
+          <p>O nÃºmero atual Ã© <strong>{confirmarVhsys.valorAtual}</strong>.</p>
           <p className="mt-8">Tem certeza que deseja alterar para <strong>{confirmarVhsys.novoValor}</strong>?</p>
-          <p className="mt-8 text-muted fs-11">Esta alteração será registrada no histórico da obra.</p>
+          <p className="mt-8 text-muted fs-11">Esta alteraÃ§Ã£o serÃ¡ registrada no histÃ³rico da obra.</p>
         </Modal>
       )}
     </>

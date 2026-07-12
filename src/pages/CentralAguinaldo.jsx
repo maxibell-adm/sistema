@@ -7,6 +7,7 @@ import { listarMemoriaLonga } from '@/modules/ia/memoriaLonga.js';
 import { perguntarIA } from '@/services/claudeAPI.js';
 import AgendaSemanal from '@/modules/agenda/AgendaSemanal.jsx';
 import CentralObras from '@/modules/obras/CentralObras.jsx';
+import { calcPrazo } from '@/rules/prazosRules.js';
 
 function formatarValor(v) {
   if (!v) return 'R$ -';
@@ -40,8 +41,17 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   const navigate = useNavigate();
   const { obras } = useObrasContext();
   const { atividades } = useApp();
-  const [secao, setSecao] = useState(secaoInicial);
-  const [subGrupo, setSubGrupo] = useState(null);
+  const [historico, setHistorico] = useState([secaoInicial]);
+  const secao = historico[historico.length - 1];
+
+  function navegar(proxima) {
+    setHistorico((h) => [...h, proxima]);
+  }
+
+  function voltar() {
+    setHistorico((h) => (h.length > 1 ? h.slice(0, -1) : h));
+  }
+  const [grupoAtivo, setGrupoAtivo] = useState(null);
   const [mesSelecionado, setMesSelecionado] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
@@ -59,7 +69,9 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const biblioteca = useMemo(() => listarMemoriaLonga(), []);
-  const insights = gerarInsights(obras, atividades || [], biblioteca).slice(0, 3);
+  const insights = gerarInsights(obras, atividades || [], biblioteca)
+    .filter((insight) => insight.tipo !== 'biblioteca')
+    .slice(0, 3);
 
   const gruposProducao = useMemo(() => ({
     em_producao: {
@@ -145,83 +157,95 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   if (secao === 'home') {
     return (
       <div className="aguinaldo-wrap">
-        <div className="aguinaldo-saudacao">{saudacao}, Aguinaldo.</div>
-        <div className="aguinaldo-subtitulo">Resumo executivo da Maxibell hoje</div>
-
-        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-          <button className="btn btn-secondary btn-sm" onClick={() => setSecao('producao')}>Produção</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setSecao('empresa')}>Empresa</button>
-          <button className="btn btn-secondary btn-sm" onClick={() => setSecao('equipe')}>Equipe</button>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navegar('empresa')}>Financeiro</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => navegar('equipe')}>Equipe</button>
         </div>
 
-        <div className="aguinaldo-status-grid">
-          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
-            <span className="status-numero" style={{ fontSize: 18 }}>{obrasAtivas.length}</span>
-            <span className="status-label" style={{ fontSize: 11 }}>obras em andamento</span>
-          </div>
-          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
-            <span className="status-numero" style={{ fontSize: 18 }}>{Object.values(gruposProducao).reduce((acc, grupo) => acc + grupo.obras.length, 0)}</span>
-            <span className="status-label" style={{ fontSize: 11 }}>produção / compra / projeto / atraso</span>
-          </div>
-          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
-            <span className="status-numero" style={{ fontSize: 18 }}>{obrasFinalizadas.length}</span>
-            <span className="status-label" style={{ fontSize: 11 }}>obras finalizadas</span>
-          </div>
-          <div className="aguinaldo-status-card" style={{ padding: '8px 12px' }}>
-            <span className="status-numero valor" style={{ fontSize: 15 }}>{formatarValor(dadosFinanceiros.totalVendas)}</span>
-            <span className="status-label" style={{ fontSize: 11 }}>vendas este mês</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (secao === 'producao') {
-    const grupoAtual = subGrupo ? gruposProducao[subGrupo] : null;
-    return (
-      <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => { setSubGrupo(null); setSecao('home'); }}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Produção</div>
-
-        <div className="aguinaldo-grupos-grid">
+        <div className="ag-prod-grid">
           {Object.entries(gruposProducao).map(([id, grupo]) => (
             <button
               key={id}
-              className={`aguinaldo-grupo-btn ${subGrupo === id ? 'ativo' : ''}`}
+              className="ag-prod-card"
               style={{ borderLeft: `4px solid ${grupo.cor}` }}
-              onClick={() => setSubGrupo(subGrupo === id ? null : id)}
+              onClick={() => {
+                setGrupoAtivo(id);
+                navegar('grupo');
+              }}
             >
-              <div className="aguinaldo-grupo-corpo">
-                <div className="aguinaldo-grupo-linha">
-                  <span className="grupo-count" style={{ color: grupo.cor }}>{grupo.obras.length}</span>
-                  <span className="grupo-label">{grupo.label}</span>
-                </div>
-                {grupo.obras.length > 0 && <div className="fs-12 text-muted mt-4">{formatarValor(somarValores(grupo.obras))}</div>}
-              </div>
+              <div className="ag-prod-numero" style={{ color: grupo.cor }}>{grupo.obras.length}</div>
+              <div className="ag-prod-label">{grupo.label}</div>
+              <div className="ag-prod-valor">{formatarValor(somarValores(grupo.obras))} em carteira</div>
             </button>
           ))}
         </div>
 
-        {grupoAtual && (
-          <div className="aguinaldo-obras-lista mt-12">
-            <div className="fs-11 fw-700 text-muted mb-8 uppercase">
-              {grupoAtual.label} - {formatarValor(somarValores(grupoAtual.obras))} em carteira
-            </div>
-            {grupoAtual.obras.length ? grupoAtual.obras.map((obra) => (
-              <button key={obra.id} className="aguinaldo-obra-row" onClick={() => navigate(`/obras/${obra.id}`)}>
-                <span className="fw-700">{obra.pp}</span>
-                <span>{obra.cliente}</span>
-                <span className="text-muted fs-11">{obra.cidade}</span>
-                <span className="fw-700 fs-12 aguinaldo-obra-valor">{formatarValor(obra.valor)}</span>
-                <span className="aguinaldo-obra-ver">Ver</span>
-              </button>
-            )) : <div className="empty-state">Nenhuma obra neste grupo.</div>}
+        {insights.length > 0 && (
+          <div className="aguinaldo-secao mb-20">
+            <div className="aguinaldo-secao-titulo">Alertas da MAX</div>
+            {insights.map((insight) => (
+              <div key={insight.id} className="aguinaldo-alerta-card">
+                <div className={`aguinaldo-alerta-tipo tipo-${insight.tipo}`}>{insight.tipo}</div>
+                <div className="aguinaldo-alerta-corpo">
+                  <div className="aguinaldo-alerta-titulo">{insight.titulo}</div>
+                  <div className="aguinaldo-alerta-desc">{textoInsight(insight)}</div>
+                </div>
+                {insight.acao?.obraId && (
+                  <button className="aguinaldo-btn-ver" onClick={() => navigate(`/obras/${insight.acao.obraId}`)}>Ver</button>
+                )}
+              </div>
+            ))}
           </div>
+        )}
+
+      </div>
+    );
+  }
+  if (secao === 'grupo') {
+    const grupo = grupoAtivo ? gruposProducao[grupoAtivo] : null;
+    if (!grupo) { navegar('home'); return null; }
+
+    return (
+      <div className="aguinaldo-wrap">
+        <div className="ag-grupo-header">
+          <button className="btn btn-secondary btn-sm" onClick={voltar}>Voltar</button>
+          <span className="ag-grupo-titulo" style={{ color: grupo.cor }}>
+            {grupo.label}
+          </span>
+        </div>
+
+        <div className="ag-grupo-resumo">
+          {grupo.obras.length} obra(s) · {formatarValor(somarValores(grupo.obras))} em carteira
+        </div>
+
+        {grupo.obras.length > 0 ? (
+          <div className="ag-obras-lista">
+            {grupo.obras.map((obra) => {
+              const prazo = calcPrazo(obra.prazo);
+              return (
+                <button
+                  key={obra.id}
+                  className="ag-obra-card"
+                  style={{ borderLeft: `4px solid ${grupo.cor}` }}
+                  onClick={() => navigate(`/obras/${obra.id}`)}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                    <span className="ag-obra-pp">{obra.pp}</span>
+                    <span className="ag-obra-cliente">{obra.cliente}</span>
+                    <span className="ag-obra-cidade">{obra.cidade}</span>
+                  </div>
+                  <span className={`badge ${prazo.classe}`}>{prazo.label}</span>
+                  <span className="ag-obra-valor">{formatarValor(obra.valor)}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="empty-state">Nenhuma obra neste grupo.</div>
         )}
       </div>
     );
   }
-
   if (secao === 'empresa') {
     const meses = Array.from({ length: 6 }, (_, i) => {
       const d = new Date();
@@ -233,15 +257,30 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => setSecao('home')}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Empresa</div>
-
-        <div className="form-field mb-20">
-          <label>Período de análise</label>
-          <select value={mesSelecionado} onChange={(e) => setMesSelecionado(e.target.value)}>
-            {meses.map((mes) => <option key={mes.val} value={mes.val}>{mes.label}</option>)}
-          </select>
+        <div className="ag-grupo-header">
+          <button className="btn btn-secondary btn-sm" onClick={voltar}>Voltar</button>
+          <span className="ag-grupo-titulo" style={{ color: 'var(--azul)' }}>Financeiro</span>
         </div>
+
+        <select
+          value={mesSelecionado}
+          onChange={(e) => setMesSelecionado(e.target.value)}
+          style={{
+            background: 'white',
+            border: '1.5px solid var(--cinza-borda)',
+            borderRadius: 8,
+            padding: '10px 16px',
+            fontSize: 15,
+            fontWeight: 600,
+            color: 'var(--azul)',
+            cursor: 'pointer',
+            marginBottom: 20,
+            width: '100%',
+            maxWidth: 320,
+          }}
+        >
+          {meses.map((mes) => <option key={mes.val} value={mes.val}>{mes.label}</option>)}
+        </select>
 
         <div className="aguinaldo-indicadores-grid">
           <div className="aguinaldo-indicador" style={{ borderTop: '4px solid var(--verde)' }}>
@@ -306,10 +345,10 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => setSecao('home')}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Equipe - últimas 24h</div>
-
-        <div className="aguinaldo-secao-titulo">Feed de atividades</div>
+        <div className="ag-grupo-header">
+          <button className="btn btn-secondary btn-sm" onClick={voltar}>Voltar</button>
+          <span className="ag-grupo-titulo" style={{ color: 'var(--azul)' }}>Equipe — últimas 24h</span>
+        </div>
         {eventos.length ? eventos.slice(0, 30).map((evento, i) => (
           <div key={`${evento.obra.id}-${i}`} className="acontecimento-item">
             <div className="acontecimento-hora">{evento.hora || '--:--'}</div>
@@ -335,9 +374,6 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => { setSecao('home'); setResposta(''); }}>← Voltar</button>
-        <div className="page-title">MAX IA</div>
-
         {insights.length > 0 && !resposta && !carregando && (
           <div className="aguinaldo-secao mb-20">
             <div className="aguinaldo-secao-titulo">Alertas da MAX</div>
@@ -365,7 +401,7 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
                 onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
                 onFocus={() => setMostrarSugestoes(true)}
                 onBlur={() => setTimeout(() => setMostrarSugestoes(false), 150)}
-                placeholder="Escreva sua pergunta para a MAX..."
+                placeholder="Pergunte à MAX..."
                 className="aguinaldo-pergunta-input"
                 id="max-input"
               />

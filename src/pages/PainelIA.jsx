@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { labelEtapa } from '@/config/etapas.js';
 import { IA_ATIVA, perguntarIA } from '@/services/claudeAPI.js';
 import { listarItensBiblioteca } from '@/services/bibliotecaService.js';
 import { montarContextoIA, resumoContextoTexto } from '@/modules/ia/contextoIA.js';
@@ -10,6 +12,7 @@ import { avaliarRegrasIA } from '@/modules/ia/regrasIA.js';
 import { useApp } from '@/modules/layout/AppContext.jsx';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { useObras } from '@/modules/obras/useObras.js';
+import { calcPrazo } from '@/rules/prazosRules.js';
 
 export default function PainelIA() {
   const { usuario } = useAuth();
@@ -76,12 +79,25 @@ export default function PainelIA() {
 
           <section className="card card-pad">
             <div className="section-titulo mb-12">Ranking crítico</div>
-            {ranking.map(({ obra, saude }) => (
-              <div key={obra.id} className="ia-ranking-item">
-                <div><strong>{obra.pp}</strong><span>{obra.cliente}</span></div>
-                <b>{saude.valor}</b>
-              </div>
-            ))}
+            {ranking.map(({ obra, saude }, index) => {
+              const prazo = calcPrazo(obra.prazo);
+              const corPosicao = index === 0 ? '#F59E0B' : index === 1 ? '#94A3B8' : index === 2 ? '#B45309' : 'var(--cinza-medio)';
+              const corSaude = saude.valor < 40 ? 'var(--vermelho)' : saude.valor <= 70 ? 'var(--laranja)' : 'var(--verde)';
+              return (
+                <div key={obra.id} className="ia-ranking-item">
+                  <div className="ia-ranking-pos" style={{ color: corPosicao }}>{index + 1}º</div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Link to={`/obras/${obra.id}`} className="fw-700">{obra.pp} - {obra.cliente}</Link>
+                    <span>{labelEtapa(obra.etapa)}</span>
+                  </div>
+                  <span className={`badge ${prazo.classe}`}>{prazo.label}</span>
+                  <div className="ia-ranking-barra-wrap">
+                    <div className="ia-ranking-barra-fill" style={{ width: `${saude.valor}%`, background: corSaude }} />
+                  </div>
+                  <span className="ia-ranking-score">{saude.valor}%</span>
+                </div>
+              );
+            })}
           </section>
         </div>
       )}

@@ -71,3 +71,78 @@
 .aguinaldo-obra-valor{color:var(--verde);margin-left:auto}
 .aguinaldo-grupo-corpo{display:flex;flex-direction:column;flex:1}
 .aguinaldo-grupo-linha{display:flex;align-items:center;gap:12px}
+.ag-prod-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.ag-prod-card{background:var(--branco);border:1px solid var(--cinza-borda);border-radius:10px;padding:14px 16px;cursor:pointer;text-align:left;transition:.18s;display:flex;flex-direction:column;gap:2px}
+.ag-prod-card:hover{box-shadow:0 4px 14px rgba(26,58,92,.1);border-color:var(--azul-claro)}
+.ag-prod-numero{font-family:'Montserrat',sans-serif;font-weight:800;font-size:26px}
+.ag-prod-label{font-size:13px;font-weight:600;color:var(--cinza-escuro)}
+.ag-prod-valor{font-size:11px;color:var(--cinza-medio);margin-top:2px}
+.ag-barra-wrap{height:4px;background:var(--cinza-borda);border-radius:2px;margin-top:10px;overflow:hidden}
+.ag-barra-fill{height:100%;border-radius:2px;transition:width .3s}
+@media(max-width:900px){.ag-prod-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.ag-prod-grid{grid-template-columns:1fr}}
+
+/* --- Seção grupo (lista de obras por card) --- */
+.ag-grupo-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.ag-grupo-titulo {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+}
+.ag-grupo-resumo {
+  font-size: 12px;
+  color: var(--cinza-medio);
+  margin-bottom: 16px;
+}
+.ag-obras-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ag-obra-card {
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: .15s;
+  text-align: left;
+  width: 100%;
+}
+.ag-obra-card:hover {
+  border-color: var(--azul-claro);
+  box-shadow: 0 2px 8px rgba(26,58,92,.08);
+}
+.ag-obra-pp {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--cinza-medio);
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+.ag-obra-cliente {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--cinza-escuro);
+}
+.ag-obra-cidade {
+  font-size: 12px;
+  color: var(--cinza-medio);
+}
+.ag-obra-valor {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--verde);
+  font-size: 13px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

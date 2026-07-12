@@ -135,6 +135,10 @@
 .ia-ok{border-left-color:var(--verde)}
 .ia-ranking-item{display:flex;align-items:center;justify-content:space-between}
 .ia-ranking-item span,.ia-regra-item span,.ia-memoria-lista span,.ia-insight span{font-size:12px;color:var(--cinza-medio)}
+.ia-ranking-pos{font-size:18px;font-weight:800;min-width:32px}
+.ia-ranking-barra-wrap{height:6px;background:var(--cinza-borda);border-radius:3px;flex:1;overflow:hidden;min-width:80px}
+.ia-ranking-barra-fill{height:100%;border-radius:3px}
+.ia-ranking-score{font-size:11px;color:var(--cinza-medio);white-space:nowrap}
 .biblioteca-toolbar{margin-bottom:12px}
 .biblioteca-form{display:grid;grid-template-columns:1fr 180px auto;gap:8px;align-items:start;margin-bottom:14px}
 .biblioteca-form textarea{grid-column:1/3;min-height:68px;resize:vertical}
@@ -181,7 +185,7 @@
 .ocorrencia-retorno{font-size:12px;color:var(--laranja);margin-top:6px;font-weight:600}
 .ocorrencia-rodape{font-size:10px;color:var(--cinza-medio);margin-top:8px;padding-top:6px;border-top:1px solid var(--cinza-claro)}
 
-.kanban-toolbar{padding:6px 0 8px;margin-bottom:8px}
+.kanban-toolbar{padding:4px 0 6px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:nowrap;overflow-x:auto}
 .kanban-toolbar.sticky{position:sticky;top:var(--header-h);z-index:50;background:var(--pg-bg);padding-top:8px}
 
 .input-readonly{background:var(--cinza-claro);color:var(--cinza-medio);cursor:not-allowed;border-color:var(--cinza-borda)}
@@ -253,14 +257,14 @@
 .arquivo-icone{background:var(--azul);color:#fff}
 
 .fullscreen-exit{position:fixed;top:12px;left:12px;z-index:9999;background:var(--vermelho);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:12px;cursor:pointer;box-shadow:0 4px 14px rgba(192,57,43,.25)}
-.kanban-filtros-left,.kanban-metricas-right{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
+.kanban-filtros-left,.kanban-metricas-right{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;flex-shrink:0}
 .select-sm,.input-sm{min-height:31px;border:1px solid var(--cinza-borda);border-radius:7px;padding:5px 9px;background:var(--branco);color:var(--cinza-escuro);font-size:11px}
-.metrica-mini{background:var(--branco);border:1px solid var(--cinza-borda);border-radius:8px;padding:6px 12px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;align-items:center;min-width:70px}
+.metrica-mini{background:var(--branco);border:1px solid var(--cinza-borda);border-radius:8px;padding:4px 10px;cursor:pointer;transition:.15s;display:flex;flex-direction:column;align-items:center;min-width:60px}
 .metrica-mini:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(26,58,92,.08)}
 .metrica-mini.ativo{border-color:var(--azul-claro);background:var(--azul-bg)}
 .metrica-mini.vermelho.ativo{border-color:var(--vermelho);background:var(--vermelho-claro)}
 .metrica-mini.laranja.ativo{border-color:var(--laranja);background:var(--laranja-claro)}
-.mm-valor{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;color:var(--azul)}
+.mm-valor{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:800;color:var(--azul)}
 .mm-label{font-size:9px;color:var(--cinza-medio);text-transform:uppercase;letter-spacing:.3px}
 .agenda-periodo-btns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .missao-dia-card{background:var(--branco);border:1px solid var(--cinza-borda);border-radius:10px;padding:16px}
@@ -507,8 +511,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
 }
 .obra-busca-dropdown {
   position: absolute;

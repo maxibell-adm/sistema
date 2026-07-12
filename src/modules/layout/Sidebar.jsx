@@ -45,6 +45,15 @@ export default function Sidebar() {
           <div className="sidebar-usuario-nome">{usuario.nome}</div>
           <div className="sidebar-usuario-cargo">{usuario.cargo}</div>
         </div>
+        {usuario.role === 'admin' && (
+          <NavLink
+            to="/admin/usuarios"
+            style={{ marginLeft: 'auto', color: 'rgba(255,255,255,0.6)', fontSize: 16, textDecoration: 'none' }}
+            title="Colaboradores"
+          >
+            ⚙
+          </NavLink>
+        )}
       </div>
 
       <nav className="sidebar-nav">
@@ -72,19 +81,18 @@ export default function Sidebar() {
         <div className="sidebar-nav-titulo">Atalhos</div>
         <QuickActions inline />
 
+        {usuario.role === 'medicao' && (
+          <>
+            <a href="https://drive.google.com/drive/folders/1rvvgrds9G25TgHonXke-GeiZ1vIOOKZ1" target="_blank" rel="noopener noreferrer" className="nav-btn">📁 Drive Comercial</a>
+            <a href="https://drive.google.com/drive/folders/1Wxv270Mf0ahtmj6sIczT-D9zZMueTQDG?usp=drive_link" target="_blank" rel="noopener noreferrer" className="nav-btn">📁 Drive Projetos</a>
+          </>
+        )}
+
         {usuario.role === 'admin' && (
           <>
-            <NavLink to="/admin/usuarios" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
-              Colaboradores
-            </NavLink>
             <a href="https://drive.google.com" target="_blank" rel="noopener noreferrer" className="nav-btn">Drive</a>
-            <NavLink
-              to="/projetos-empresa"
-              className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}
-              onClick={(e) => e.preventDefault()}
-              title="Em breve"
-            >
-              Projetos
+            <NavLink to="/lembretes" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+              Lembretes
             </NavLink>
             <a href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#followup" target="_blank" rel="noopener noreferrer" className="nav-btn">
               Follow Up
@@ -105,6 +113,7 @@ export default function Sidebar() {
             </NavLink>
             <a href="https://maxibell-adm.github.io/projetos/" target="_blank" rel="noopener noreferrer" className="nav-btn">Projetos</a>
             <a href="https://maxibell-adm.github.io/Maxibell/aplicativos/validacao-projetos.html" target="_blank" rel="noopener noreferrer" className="nav-btn">Conferência</a>
+            <a href="https://drive.google.com/drive/folders/1Wxv270Mf0ahtmj6sIczT-D9zZMueTQDG?usp=drive_link" target="_blank" rel="noopener noreferrer" className="nav-btn">📁 Drive Projetos</a>
           </>
         )}
 
@@ -112,6 +121,7 @@ export default function Sidebar() {
           <>
             <a href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#followup" target="_blank" rel="noopener noreferrer" className="nav-btn">Follow-up</a>
             <a href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#faq" target="_blank" rel="noopener noreferrer" className="nav-btn">FAQ</a>
+            <a href="https://drive.google.com/drive/folders/1rvvgrds9G25TgHonXke-GeiZ1vIOOKZ1" target="_blank" rel="noopener noreferrer" className="nav-btn">📁 Drive Comercial</a>
           </>
         )}
       </nav>
