@@ -59,6 +59,8 @@ export default function CentralObras() {
   const emCompras = ativas.filter((o) => o.etapa === 'compras');
 
   let filtradas = responsavel === 'todos' ? obrasNaoArquivadas : obrasNaoArquivadas.filter((o) => o.responsavel === responsavel);
+  if (usuario.role === 'medicao' && grupo === 'medicao_inicial') filtradas = filtradas.filter((o) => o.etapa === 'medicao_inicial');
+  if (usuario.role === 'medicao' && grupo === 'medicao_final') filtradas = filtradas.filter((o) => o.etapa === 'medicao_final');
   if (filtroAtivo === 'ativas') filtradas = filtradas.filter((o) => !['finalizado', 'manutencao'].includes(o.etapa));
   if (filtroAtivo === 'atrasadas') filtradas = filtradas.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido');
   if (filtroAtivo === 'compras') filtradas = filtradas.filter((o) => o.etapa === 'compras');
@@ -77,6 +79,17 @@ export default function CentralObras() {
   const obrasComPendenciaMatheus = obrasVisiveis.filter((o) => o.pendencia?.aberta && o.responsavel === usuario.nome);
 
   function renderFiltros() {
+    if (usuario.role === 'medicao') {
+      return (
+        <div className="kanban-filtros-left">
+          <div className="segmented">
+            <Button variant={grupo === 'todos' ? 'primary' : 'secondary'} size="sm" onClick={() => setGrupo('todos')}>Todos</Button>
+            <Button variant={grupo === 'medicao_inicial' ? 'primary' : 'secondary'} size="sm" onClick={() => setGrupo('medicao_inicial')}>Medição Inicial</Button>
+            <Button variant={grupo === 'medicao_final' ? 'primary' : 'secondary'} size="sm" onClick={() => setGrupo('medicao_final')}>Medição Final</Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="kanban-filtros-left">
         <div className="segmented">
@@ -154,6 +167,9 @@ export default function CentralObras() {
     <>
       {!fullscreen && (
         <>
+          {usuario.role !== 'medicao' && (
+            <div className="page-title" style={{ marginBottom: 8 }}>Central de Obras</div>
+          )}
           <div className="kanban-toolbar sticky">
             {renderFiltros()}
             {renderMetricas()}

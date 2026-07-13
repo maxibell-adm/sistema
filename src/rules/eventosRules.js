@@ -187,7 +187,13 @@ export function verificarPrazosOC(obras, gerarNotificacao) {
       }
     });
 
-  const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.retorno') || '[]');
+  let lembretes = [];
+  try {
+    const parsed = JSON.parse(localStorage.getItem('maxibell.lembretes.retorno') || '[]');
+    lembretes = Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem('maxibell.lembretes.retorno');
+  }
   lembretes
     .filter((l) => l.data === hoje)
     .forEach((l) => {

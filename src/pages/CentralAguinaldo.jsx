@@ -37,6 +37,18 @@ function textoInsight(insight) {
   return insight.corpo || insight.texto || '';
 }
 
+function lerArrayLocalStorage(chave) {
+  try {
+    const salvo = localStorage.getItem(chave);
+    if (!salvo) return [];
+    const parsed = JSON.parse(salvo);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem(chave);
+    return [];
+  }
+}
+
 export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   const navigate = useNavigate();
   const { obras } = useObrasContext();
@@ -52,17 +64,6 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
     setHistorico((h) => (h.length > 1 ? h.slice(0, -1) : h));
   }
 
-  useEffect(() => {
-    const titulos = {
-      home: 'Painel',
-      grupo: grupoAtivo && gruposProducao[grupoAtivo] ? gruposProducao[grupoAtivo].label : 'Produção',
-      empresa: 'Financeiro',
-      equipe: 'Equipe',
-      max: 'MAX IA',
-    };
-    document.title = `${titulos[secao] || 'Painel'} · MAXIBELL`;
-    return () => { document.title = 'MAXIBELL OS'; };
-  }, [secao, grupoAtivo]);
   const [grupoAtivo, setGrupoAtivo] = useState(null);
   const [mesSelecionado, setMesSelecionado] = useState(() => {
     const d = new Date();
@@ -108,6 +109,18 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
     },
   }), [obrasAtivas]);
 
+  useEffect(() => {
+    const titulos = {
+      home: 'Painel',
+      grupo: grupoAtivo && gruposProducao[grupoAtivo] ? gruposProducao[grupoAtivo].label : 'Produção',
+      empresa: 'Financeiro',
+      equipe: 'Equipe',
+      max: 'MAX IA',
+    };
+    document.title = `${titulos[secao] || 'Painel'} · MAXIBELL`;
+    return () => { document.title = 'MAXIBELL OS'; };
+  }, [secao, grupoAtivo, gruposProducao]);
+
   const dadosFinanceiros = useMemo(() => {
     const inicioMes = new Date(`${mesSelecionado}-01T00:00:00`);
     const fimMes = new Date(inicioMes);
@@ -150,7 +163,7 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   }
 
   function enviarParecer() {
-    const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
+    const lembretes = lerArrayLocalStorage('maxibell.lembretes.app');
     lembretes.unshift({
       id: Date.now().toString(),
       titulo: 'Parecer de Aguinaldo',

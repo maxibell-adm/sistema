@@ -12,13 +12,22 @@ const TAGS_LEMBRETE = [
   { id: 'urgente', label: 'Urgente', cor: '#C0392B' },
 ];
 
+function carregarLembretes() {
+  try {
+    const salvo = localStorage.getItem('maxibell.lembretes.app');
+    if (!salvo) return [];
+    const parsed = JSON.parse(salvo);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem('maxibell.lembretes.app');
+    return [];
+  }
+}
+
 export default function Lembretes() {
   const { usuario } = useAuth();
   const responsaveis = carregarUsuarios().filter((u) => u.ativo).map((u) => u.nome);
-  const [lembretes, setLembretes] = useState(() => {
-    const salvo = localStorage.getItem('maxibell.lembretes.app');
-    return salvo ? JSON.parse(salvo) : [];
-  });
+  const [lembretes, setLembretes] = useState(() => carregarLembretes());
   const [form, setForm] = useState({
     titulo: '', descricao: '', responsavel: usuario.nome, observacao: '', tag: 'geral',
   });

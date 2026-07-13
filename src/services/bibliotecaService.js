@@ -22,8 +22,12 @@ const ITENS_PADRAO = [
 ];
 
 function carregar() {
-  const salvo = JSON.parse(localStorage.getItem(CHAVE) || 'null');
-  if (salvo) return salvo;
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE) || 'null');
+    if (Array.isArray(salvo)) return salvo;
+  } catch {
+    localStorage.removeItem(CHAVE);
+  }
   localStorage.setItem(CHAVE, JSON.stringify(ITENS_PADRAO));
   return ITENS_PADRAO;
 }

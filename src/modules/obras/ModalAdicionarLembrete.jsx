@@ -43,7 +43,13 @@ export default function ModalAdicionarLembrete({ onClose, onSalvar }) {
       onSalvar(novo);
     } else {
       const chave = 'maxibell.lembretes.app';
-      const salvos = JSON.parse(localStorage.getItem(chave) || '[]');
+      let salvos = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem(chave) || '[]');
+        salvos = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        localStorage.removeItem(chave);
+      }
       localStorage.setItem(chave, JSON.stringify([novo, ...salvos]));
     }
     onClose();

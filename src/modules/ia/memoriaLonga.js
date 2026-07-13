@@ -7,8 +7,13 @@ const PADRAO = [
 ];
 
 export function listarMemoriaLonga() {
-  const salvo = JSON.parse(localStorage.getItem(CHAVE) || 'null');
-  return salvo || PADRAO;
+  try {
+    const salvo = JSON.parse(localStorage.getItem(CHAVE) || 'null');
+    return Array.isArray(salvo) ? salvo : PADRAO;
+  } catch {
+    localStorage.removeItem(CHAVE);
+    return PADRAO;
+  }
 }
 
 export function salvarMemoriaLonga(itens) {

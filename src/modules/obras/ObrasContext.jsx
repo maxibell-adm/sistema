@@ -350,7 +350,13 @@ export function ObrasProvider({ children }) {
         historico: [...(obraMae.historico || []), eventoMae],
       });
 
-      const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.retorno') || '[]');
+      let lembretes = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem('maxibell.lembretes.retorno') || '[]');
+        lembretes = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        localStorage.removeItem('maxibell.lembretes.retorno');
+      }
       lembretes.push({
         data: dadosOcorrencia.dataRetorno,
         texto: `Retorno a instalacao: ${obraMae.pp} - ${obraMae.cliente}. ${dadosOcorrencia.descricao}`,
@@ -763,5 +769,4 @@ export function ObrasProvider({ children }) {
 export function useObrasContext() {
   return useContext(ObrasContext);
 }
-
 

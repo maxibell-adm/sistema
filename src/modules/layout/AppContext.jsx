@@ -7,14 +7,22 @@ import { useAuth } from '@/modules/auth/AuthContext.jsx';
 const AppContext = createContext(null);
 const CHAVE_NOTIF = (nome) => `maxibell.notificacoes.${nome}`;
 
+function carregarNotificacoes(nome) {
+  if (!nome) return [];
+  try {
+    const salvas = localStorage.getItem(CHAVE_NOTIF(nome));
+    const parsed = salvas ? JSON.parse(salvas) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem(CHAVE_NOTIF(nome));
+    return [];
+  }
+}
+
 export function AppProvider({ children }) {
   const { usuario } = useAuth();
   const [atividades, setAtividades] = useState(ATIVIDADES_EXEMPLO);
-  const [notificacoes, setNotificacoes] = useState(() => {
-    if (!usuario?.nome) return [];
-    const salvas = localStorage.getItem(CHAVE_NOTIF(usuario.nome));
-    return salvas ? JSON.parse(salvas) : [];
-  });
+  const [notificacoes, setNotificacoes] = useState(() => carregarNotificacoes(usuario?.nome));
   const [toast, setToast] = useState(null);
   const [toasts, setToasts] = useState([]);
 
@@ -23,8 +31,7 @@ export function AppProvider({ children }) {
       setNotificacoes([]);
       return;
     }
-    const salvas = localStorage.getItem(CHAVE_NOTIF(usuario.nome));
-    setNotificacoes(salvas ? JSON.parse(salvas) : []);
+    setNotificacoes(carregarNotificacoes(usuario.nome));
   }, [usuario?.nome]);
 
   function mostrarToast(texto, tipo = 'info') {
@@ -61,7 +68,7 @@ export function AppProvider({ children }) {
 
     if (nova.para) {
       const chave = CHAVE_NOTIF(nova.para);
-      const existentes = JSON.parse(localStorage.getItem(chave) || '[]');
+      const existentes = carregarNotificacoes(nova.para);
       const atualizadas = [notif, ...existentes].slice(0, 50);
       localStorage.setItem(chave, JSON.stringify(atualizadas));
     }

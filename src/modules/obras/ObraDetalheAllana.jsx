@@ -22,7 +22,7 @@ export default function ObraDetalheAllana({ obra }) {
   const prazo = calcPrazo(obra.prazo);
   const tipoProjeto = obra.etapa === 'projeto_contramarco' ? 'Contramarco' : 'Projeto Final';
   const projetoLiberado = obra.etapa !== 'projeto_contramarco' && obra.etapa !== 'projeto_final';
-  const históricoProjeto = { ...obra, histórico: obra.histórico.filter((h) => /medicao|projeto|pendencia/i.test(`${h.acao} ${h.desc}`)) };
+  const historicoProjeto = { ...obra, historico: (obra.historico || []).filter((h) => /medicao|projeto|pendencia/i.test(`${h.acao} ${h.desc}`)) };
 
   function iniciarLiberacao() {
     if (obra.etapa === 'projeto_final' || (obra.pendencia?.tipo === 'aviso_divisao' && obra.pendencia.aberta)) {
@@ -76,7 +76,7 @@ export default function ObraDetalheAllana({ obra }) {
             <ArquivosObra obra={obra} framed={false} mostrarTitulo={false} somenteLeitura={projetoLiberado} />
           </section>
         </div>
-        <aside><HistoricoObra obra={históricoProjeto} /></aside>
+        <aside><HistoricoObra obra={historicoProjeto} /></aside>
       </div>
       {escopo && (
         <Modal titulo="Verificacao de Escopo do Projeto" onClose={() => setEscopo(false)} footer={<><Button variant="secondary" onClick={() => setEscopo(false)}>Cancelar</Button><Button variant="success" onClick={confirmarEscopoIntegral}>Sim, todos os produtos</Button><Button variant="secondary" onClick={() => { setEscopo(false); setModalDivisao(true); }}>Nao, dividir obra</Button></>}>
@@ -90,5 +90,4 @@ export default function ObraDetalheAllana({ obra }) {
     </>
   );
 }
-
 

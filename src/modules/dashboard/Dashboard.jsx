@@ -77,6 +77,18 @@ const TEMAS_SEMANA_ANDRE = {
   },
 };
 
+function lerArrayLocalStorage(chave, fallback = []) {
+  try {
+    const salvo = localStorage.getItem(chave);
+    if (!salvo) return fallback;
+    const parsed = JSON.parse(salvo);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    localStorage.removeItem(chave);
+    return fallback;
+  }
+}
+
 function Metric({ label, valor, sub, cor = '', onClick }) {
   return <button className={`metrica-card metric-click ${cor}`} onClick={onClick}><div className="metrica-label">{label}</div><div className="metrica-valor">{valor}</div><div className="metrica-sub">{sub}</div></button>;
 }
@@ -295,7 +307,7 @@ function LembretesMatheus({ lembretes, salvarLembretes }) {
 }
 
 function LembretesParticulares() {
-  const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]')
+  const lembretes = lerArrayLocalStorage('maxibell.lembretes.app')
     .filter((lembrete) => lembrete.tag === 'particular' && !lembrete.concluido);
 
   return (
@@ -316,7 +328,7 @@ function LembretesParticulares() {
 
 function LembretesRecebidos({ usuario }) {
   const hojeIso = new Date().toISOString().split('T')[0];
-  const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]')
+  const lembretes = lerArrayLocalStorage('maxibell.lembretes.app')
     .filter((lembrete) => {
       const vencidoOuSemData = !lembrete.data || lembrete.data <= hojeIso;
       return lembrete.responsavel === usuario.nome
@@ -422,7 +434,7 @@ function InsightCapacidade({ obras }) {
 export default function Dashboard() {
   const { usuario } = useAuth();
   const { obrasVisiveis } = useObras();
-  const { atividades } = useApp();
+  const { atividades, notificacoes } = useApp();
   const navigate = useNavigate();
   const [filtroAndre, setFiltroAndre] = useState('Todos');
   const [telaAlvaro, setTelaAlvaro] = useState(1);
@@ -431,8 +443,7 @@ export default function Dashboard() {
   const [mostrarUrgencias, setMostrarUrgencias] = useState(false);
   const [filtroAllana, setFiltroAllana] = useState('ativos');
   const [lembretes] = useState(() => {
-    const salvo = localStorage.getItem('maxibell.lembretes.matheus');
-    return salvo ? JSON.parse(salvo) : LEMBRETES_FIXOS_MATHEUS;
+    return lerArrayLocalStorage('maxibell.lembretes.matheus', LEMBRETES_FIXOS_MATHEUS);
   });
   const role = usuario.role;
   const hojeIso = new Date().toISOString().split('T')[0];
@@ -540,7 +551,7 @@ export default function Dashboard() {
               )}
               {(() => {
                 return null;
-                const lembretesApp = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
+                const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
                 const paraAna = lembretesApp.filter((lembrete) => lembrete.responsavel === usuario.nome && !lembrete.concluido);
                 return paraAna.length > 0 ? (
                   <div className="mt-16">
@@ -763,6 +774,7 @@ export default function Dashboard() {
                 <div className="empty-state">Nenhuma atividade programada para hoje.</div>
               )}
             </section>
+            )}
 
             {agendaPainel === 'amanha' && (
               <section className="card card-pad mb-16">

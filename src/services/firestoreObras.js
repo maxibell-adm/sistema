@@ -1,7 +1,13 @@
 const CHAVE = 'maxibell.firestore.obras';
 
 function ler() {
-  return JSON.parse(localStorage.getItem(CHAVE) || '[]');
+  try {
+    const parsed = JSON.parse(localStorage.getItem(CHAVE) || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem(CHAVE);
+    return [];
+  }
 }
 
 function gravar(obras) {
