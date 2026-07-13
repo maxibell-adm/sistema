@@ -61,6 +61,11 @@ export default function Sidebar() {
         <NavLink to="/" end className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
           Painel
         </NavLink>
+        {usuario.role === 'admin' && (
+          <NavLink to="/ia" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
+            MAX IA
+          </NavLink>
+        )}
         {!['comercial', 'projetos'].includes(usuario.role) && (
           <NavLink to="/obras" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
             Central de Obras
@@ -72,11 +77,7 @@ export default function Sidebar() {
           </NavLink>
         )}
 
-        {usuario.role === 'admin' && (
-          <NavLink to="/ia" className={({ isActive }) => `nav-btn ${isActive ? 'ativo' : ''}`}>
-            MAX IA
-          </NavLink>
-        )}
+
 
         <div className="sidebar-nav-titulo">Atalhos</div>
         <QuickActions inline />

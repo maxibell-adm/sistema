@@ -743,6 +743,7 @@ export default function Dashboard() {
               <LembretesRecebidos usuario={usuario} inline />
             </section>
 
+            {agendaPainel !== 'amanha' && (
             <section className="card card-pad mb-16">
               <div className="section-titulo mb-12">📅 Agenda de hoje</div>
               {atividadesPerfil.filter((a) => a.data === hojeIso).length ? (
@@ -812,8 +813,29 @@ export default function Dashboard() {
   }
 
   if (role === 'projetos') {
+    const notifNaoLidas = (notificacoes || []).filter((n) => !n.lida).length;
     return (
       <>
+        <div className="card card-pad mb-16">
+          {projetosVencidos.length > 0 && (
+            <div className="fs-13 mb-6" style={{ color: 'var(--vermelho)' }}>
+              ⚠ Você tem <strong>{projetosVencidos.length}</strong> projeto(s) com prazo ultrapassado.
+            </div>
+          )}
+          {projetosBase.length > 0 && (
+            <div className="fs-13 mb-6" style={{ color: 'var(--cinza-escuro)' }}>
+              📐 Você tem <strong>{projetosBase.length}</strong> projeto(s) em andamento.
+            </div>
+          )}
+          {notifNaoLidas > 0 && (
+            <div className="fs-13" style={{ color: 'var(--azul)' }}>
+              🔔 Você tem <strong>{notifNaoLidas}</strong> notificação(ões) não lida(s) — veja o sino no canto direito.
+            </div>
+          )}
+          {projetosVencidos.length === 0 && projetosBase.length === 0 && notifNaoLidas === 0 && (
+            <div className="fs-13 text-muted">Tudo em dia! Nenhuma pendência no momento.</div>
+          )}
+        </div>
         <LembretesRecebidos usuario={usuario} />
         <div className="metricas-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
           <Metric label="Projetos ativos" valor={projetosBase.length} sub="em andamento" onClick={() => setFiltroAllana('ativos')} />

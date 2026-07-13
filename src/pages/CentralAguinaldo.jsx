@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 import { useApp } from '@/modules/layout/AppContext.jsx';
@@ -51,6 +51,18 @@ export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   function voltar() {
     setHistorico((h) => (h.length > 1 ? h.slice(0, -1) : h));
   }
+
+  useEffect(() => {
+    const titulos = {
+      home: 'Painel',
+      grupo: grupoAtivo && gruposProducao[grupoAtivo] ? gruposProducao[grupoAtivo].label : 'Produção',
+      empresa: 'Financeiro',
+      equipe: 'Equipe',
+      max: 'MAX IA',
+    };
+    document.title = `${titulos[secao] || 'Painel'} · MAXIBELL`;
+    return () => { document.title = 'MAXIBELL OS'; };
+  }, [secao, grupoAtivo]);
   const [grupoAtivo, setGrupoAtivo] = useState(null);
   const [mesSelecionado, setMesSelecionado] = useState(() => {
     const d = new Date();

@@ -662,7 +662,7 @@ export function ObrasProvider({ children }) {
   function dividirObra(obraId, dados) {
     const obraMae = obras.find((o) => o.id === obraId);
     if (!obraMae || !usuario) return { ok: false, erro: 'Obra não encontrada.' };
-    if (!['admin', 'projetos'].includes(usuario.role)) return { ok: false, erro: 'Apenas Allana ou Ãlvaro podem dividir obra.' };
+    if (!['admin', 'projetos'].includes(usuario.role)) return { ok: false, erro: 'Apenas Allana ou Álvaro podem dividir obra.' };
     if (obraMae.etapa !== 'projeto_final') return { ok: false, erro: 'A divisão só pode ocorrer na transição Projeto Final -> Compras.' };
     if (!dados.escopoAgora?.trim() || !dados.escopoFuturo?.trim()) return { ok: false, erro: 'Preencha os dois escopos.' };
 
@@ -735,7 +735,7 @@ export function ObrasProvider({ children }) {
       gerarNotificacao({ para: 'Matheus', texto: `Nova fase criada - ${filha.pp} aguarda sua medição final. ${filha.cliente} - ${filha.cidade}`, tipo: 'bloqueio', cor: '#E67E22', obraId: filha.id });
       gerarNotificacao({ para: 'André', texto: `Cadastrar ${filha.pp} no VHSys - ${filha.cliente} - Fase ${filha.fase} da obra ${obraMae.pp}`, tipo: 'sistema', cor: '#1E5799', obraId: filha.id });
     });
-    gerarNotificacao({ para: 'Ãlvaro', texto: `Obra ${obraMae.pp} dividida em ${filhas.length + 1} fases por ${usuario.nome}.`, tipo: 'info', cor: '#1E5799', obraId });
+    gerarNotificacao({ para: 'Álvaro', texto: `Obra ${obraMae.pp} dividida em ${filhas.length + 1} fases por ${usuario.nome}.`, tipo: 'info', cor: '#1E5799', obraId });
     return { ok: true };
   }
 

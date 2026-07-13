@@ -1,18 +1,31 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { ATIVIDADES_EXEMPLO } from '@/modules/agenda/atividadesData.js';
-import { NOTIFICACOES_EXEMPLO } from '@/modules/notificacoes/notificacoesData.js';
 import { tocarSomNotificacao } from '@/rules/notificacoesRules.js';
 import { verificarNotificacoesAmanha } from '@/rules/eventosRules.js';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 
 const AppContext = createContext(null);
+const CHAVE_NOTIF = (nome) => `maxibell.notificacoes.${nome}`;
 
 export function AppProvider({ children }) {
+  const { usuario } = useAuth();
   const [atividades, setAtividades] = useState(ATIVIDADES_EXEMPLO);
-  const [notificacoes, setNotificacoes] = useState(NOTIFICACOES_EXEMPLO);
+  const [notificacoes, setNotificacoes] = useState(() => {
+    if (!usuario?.nome) return [];
+    const salvas = localStorage.getItem(CHAVE_NOTIF(usuario.nome));
+    return salvas ? JSON.parse(salvas) : [];
+  });
   const [toast, setToast] = useState(null);
   const [toasts, setToasts] = useState([]);
-  const { usuario } = useAuth();
+
+  useEffect(() => {
+    if (!usuario?.nome) {
+      setNotificacoes([]);
+      return;
+    }
+    const salvas = localStorage.getItem(CHAVE_NOTIF(usuario.nome));
+    setNotificacoes(salvas ? JSON.parse(salvas) : []);
+  }, [usuario?.nome]);
 
   function mostrarToast(texto, tipo = 'info') {
     setToast({ texto, tipo, id: Date.now() });
@@ -28,20 +41,33 @@ export function AppProvider({ children }) {
     setTimeout(() => removerToast(id), 6000);
   }
 
+  function persistirNotificacoes(novas) {
+    if (!usuario?.nome) return;
+    localStorage.setItem(CHAVE_NOTIF(usuario.nome), JSON.stringify(novas));
+    setNotificacoes(novas);
+  }
+
   function gerarNotificacao(nova) {
     const agora = new Date();
     const notif = {
       id: String(Date.now()),
-      data: 'Hoje',
+      data: agora.toLocaleDateString('pt-BR'),
       hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
       nova: true,
       lida: false,
       cor: nova.cor || '#1E5799',
       ...nova,
     };
-    setNotificacoes((atuais) => [notif, ...atuais]);
+
+    if (nova.para) {
+      const chave = CHAVE_NOTIF(nova.para);
+      const existentes = JSON.parse(localStorage.getItem(chave) || '[]');
+      const atualizadas = [notif, ...existentes].slice(0, 50);
+      localStorage.setItem(chave, JSON.stringify(atualizadas));
+    }
 
     if (usuario && (nova.para === usuario.nome || nova.para === usuario.role)) {
+      persistirNotificacoes([notif, ...notificacoes].slice(0, 50));
       tocarSomNotificacao(nova.tipo);
       adicionarToast(notif);
     }
@@ -55,7 +81,18 @@ export function AppProvider({ children }) {
   }, []);
 
   function marcarNotificacoesLidas() {
-    setNotificacoes((atuais) => atuais.map((n) => ({ ...n, nova: false, lida: true })));
+    const atualizadas = notificacoes.map((n) => ({ ...n, nova: false, lida: true }));
+    persistirNotificacoes(atualizadas);
+  }
+
+  function marcarUmaLida(id) {
+    const atualizadas = notificacoes.map((n) => (n.id === id ? { ...n, nova: false, lida: true } : n));
+    persistirNotificacoes(atualizadas);
+  }
+
+  function limparNotificacoesLidas() {
+    const atualizadas = notificacoes.filter((n) => !n.lida);
+    persistirNotificacoes(atualizadas);
   }
 
   function criarAtividade(atividade) {
@@ -69,7 +106,22 @@ export function AppProvider({ children }) {
   }
 
   const value = useMemo(
-    () => ({ atividades, setAtividades, notificacoes, gerarNotificacao, marcarNotificacoesLidas, criarAtividade, atualizarAtividade, toast, setToast, mostrarToast, toasts, removerToast }),
+    () => ({
+      atividades,
+      setAtividades,
+      notificacoes,
+      gerarNotificacao,
+      marcarNotificacoesLidas,
+      marcarUmaLida,
+      limparNotificacoesLidas,
+      criarAtividade,
+      atualizarAtividade,
+      toast,
+      setToast,
+      mostrarToast,
+      toasts,
+      removerToast,
+    }),
     [atividades, notificacoes, toast, toasts]
   );
 

@@ -84,18 +84,26 @@ export default function PainelIA() {
               const corPosicao = index === 0 ? '#F59E0B' : index === 1 ? '#94A3B8' : index === 2 ? '#B45309' : 'var(--cinza-medio)';
               const corSaude = saude.valor < 40 ? 'var(--vermelho)' : saude.valor <= 70 ? 'var(--laranja)' : 'var(--verde)';
               return (
-                <div key={obra.id} className="ia-ranking-item">
-                  <div className="ia-ranking-pos" style={{ color: corPosicao }}>{index + 1}º</div>
+                <Link
+                  key={obra.id}
+                  to={`/obras/${obra.id}`}
+                  style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--cinza-borda)', marginBottom: 8, background: 'var(--branco)' }}
+                >
+                  <span style={{ color: corPosicao, fontFamily: 'Montserrat,sans-serif', fontWeight: 800, fontSize: 16, minWidth: 28, flexShrink: 0 }}>{index + 1}º</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <Link to={`/obras/${obra.id}`} className="fw-700">{obra.pp} - {obra.cliente}</Link>
-                    <span>{labelEtapa(obra.etapa)}</span>
+                    <div className="fw-700 fs-13" style={{ color: 'var(--azul)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {obra.pp} — {obra.cliente}
+                    </div>
+                    <div className="fs-11 text-muted">{labelEtapa(obra.etapa)}</div>
+                    <div className="ia-ranking-barra-wrap" style={{ marginTop: 4 }}>
+                      <div className="ia-ranking-barra-fill" style={{ width: `${saude.valor}%`, background: corSaude }} />
+                    </div>
                   </div>
-                  <span className={`badge ${prazo.classe}`}>{prazo.label}</span>
-                  <div className="ia-ranking-barra-wrap">
-                    <div className="ia-ranking-barra-fill" style={{ width: `${saude.valor}%`, background: corSaude }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <span className={`badge ${prazo.classe}`} style={{ fontSize: 10 }}>{prazo.label}</span>
+                    <span className="ia-ranking-score">{saude.valor}%</span>
                   </div>
-                  <span className="ia-ranking-score">{saude.valor}%</span>
-                </div>
+                </Link>
               );
             })}
           </section>

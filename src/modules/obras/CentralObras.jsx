@@ -85,7 +85,7 @@ export default function CentralObras() {
           ))}
         </div>
         <select value={responsavel} onChange={(e) => setResponsavel(e.target.value)} className="select-sm">
-          {responsaveis.map((r) => <option key={r} value={r}>{r === 'todos' ? 'Todos responsáveis' : r}</option>)}
+          {responsaveis.map((r) => <option key={r} value={r}>{r === 'todos' ? 'Responsáveis' : r}</option>)}
         </select>
       </div>
     );
@@ -95,7 +95,7 @@ export default function CentralObras() {
     return (
       <div className="kanban-metricas-right">
         <button className={`metrica-mini ${filtroAtivo === 'ativas' ? 'ativo' : ''}`} style={{ minWidth: 72, whiteSpace: 'nowrap' }} onClick={() => setFiltroAtivo(filtroAtivo === 'ativas' ? 'todos' : 'ativas')}>
-          <span className="mm-valor">{ativas.length}</span><span className="mm-label">Em andamento</span>
+          <span className="mm-valor">{ativas.length}</span><span className="mm-label">Andamento</span>
         </button>
         <button className={`metrica-mini vermelho ${filtroAtivo === 'atrasadas' ? 'ativo' : ''}`} style={{ minWidth: 72, whiteSpace: 'nowrap' }} onClick={() => setFiltroAtivo(filtroAtivo === 'atrasadas' ? 'todos' : 'atrasadas')}>
           <span className="mm-valor">{atrasadas.length}</span><span className="mm-label">Atrasadas</span>
@@ -184,14 +184,22 @@ export default function CentralObras() {
       {fullscreen && createPortal(
         <div className="kanban-fullscreen-overlay" ref={fullscreenRef}>
           <div className="kanban-fullscreen-header">
-            <button className="btn btn-danger btn-sm" onClick={sairFullscreen}>Sair da tela cheia</button>
             {renderFiltros()}
             <div className="kanban-metricas-right">
-              <span className="metrica-mini-texto">{ativas.length} ativas</span>
-              <span className="metrica-mini-texto vermelho">{atrasadas.length} atrasadas</span>
-              <span className="metrica-mini-texto laranja">{emCompras.length} compras</span>
-              <span className="metrica-mini-texto">{obrasNaoArquivadas.length} total</span>
+              <button className={`metrica-mini ${filtroAtivo === 'ativas' ? 'ativo' : ''}`} onClick={() => setFiltroAtivo(filtroAtivo === 'ativas' ? 'todos' : 'ativas')}>
+                <span className="mm-valor">{ativas.length}</span><span className="mm-label">Ativas</span>
+              </button>
+              <button className={`metrica-mini vermelho ${filtroAtivo === 'atrasadas' ? 'ativo' : ''}`} onClick={() => setFiltroAtivo(filtroAtivo === 'atrasadas' ? 'todos' : 'atrasadas')}>
+                <span className="mm-valor">{atrasadas.length}</span><span className="mm-label">Atrasadas</span>
+              </button>
+              <button className={`metrica-mini laranja ${filtroAtivo === 'compras' ? 'ativo' : ''}`} onClick={() => setFiltroAtivo(filtroAtivo === 'compras' ? 'todos' : 'compras')}>
+                <span className="mm-valor">{emCompras.length}</span><span className="mm-label">Compras</span>
+              </button>
+              <button className="metrica-mini cinza" onClick={() => setFiltroAtivo('todos')}>
+                <span className="mm-valor">{obrasNaoArquivadas.length}</span><span className="mm-label">Total</span>
+              </button>
             </div>
+            <button className="btn btn-danger btn-sm" onClick={sairFullscreen}>Sair da tela cheia</button>
           </div>
           <div className="kanban-fullscreen-body">
             {renderKanban()}

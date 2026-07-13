@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { labelEtapa } from '@/config/etapas.js';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 
@@ -9,6 +10,7 @@ function faseArquivo(arquivo) {
 }
 
 export default function BibliotecaProjetos() {
+  const navigate = useNavigate();
   const { obras } = useObrasContext();
   const [busca, setBusca] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('todos');
@@ -65,31 +67,27 @@ export default function BibliotecaProjetos() {
       {visiveis.length ? visiveis.map((obra) => {
         const arquivosProjeto = (obra.arquivos || []).filter((arquivo) => ETAPAS_PROJETO.includes(faseArquivo(arquivo)));
         return (
-          <div key={obra.id} className="biblioteca-projeto-card">
-            <div className="biblioteca-projeto-header">
-              <div>
-                <div className="fw-700 fs-13">{obra.pp} - {obra.cliente}</div>
-                <div className="text-muted fs-11 mt-2">{obra.cidade} - {obra.tipo}</div>
-              </div>
-              <div className="biblioteca-projeto-meta">
+          <button
+            key={obra.id}
+            className="obra-card"
+            onClick={() => navigate(`/obras/${obra.id}`)}
+            style={{ width: '100%', textAlign: 'left', cursor: 'pointer', background: 'none', border: 'none', padding: 0, marginBottom: 10, display: 'block' }}
+          >
+            <div className="obra-card" style={{ borderTop: `3px solid ${obra.etapa === 'finalizado' ? 'var(--verde)' : obra.etapa === 'projeto_final' ? '#8E44AD' : '#27AE60'}`, margin: 0 }}>
+              <div className="obra-mini-pp">{obra.pp}</div>
+              <div className="obra-mini-cliente">{obra.cliente}</div>
+              <div className="obra-mini-info fs-11 text-muted">{obra.cidade}</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 }}>
+                <div className="mini-avatar" style={{ background: '#8E44AD' }}>A</div>
                 <span className={`badge ${obra.etapa === 'finalizado' ? 'badge-ok' : 'badge-info'}`}>
                   {obra.etapa === 'finalizado' ? 'Finalizado' : labelEtapa(obra.etapa)}
                 </span>
-                {(obra.arquivos || []).length > 0 && <span className="fs-10 text-muted">{obra.arquivos.length} arquivo(s)</span>}
               </div>
+              {arquivosProjeto.length > 0 && (
+                <div className="fs-10 text-muted mt-6">{arquivosProjeto.length} arquivo(s) de projeto</div>
+              )}
             </div>
-            {arquivosProjeto.length > 0 && (
-              <div className="biblioteca-projeto-arquivos">
-                {arquivosProjeto.map((arquivo, i) => (
-                  <div key={`${arquivo.nome}-${i}`} className="arquivo-card-mini">
-                    <div className={`arquivo-icone tipo-${arquivo.tipo}`}>{arquivo.tipo?.toUpperCase() || 'ARQ'}</div>
-                    <div className="arquivo-nome">{arquivo.nome}</div>
-                    <div className="arquivo-fase-tag">{labelEtapa(faseArquivo(arquivo))}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          </button>
         );
       }) : <div className="empty-state">Nenhum projeto encontrado.</div>}
     </>

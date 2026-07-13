@@ -8,6 +8,9 @@ const TITULOS = {
   '/': '',
   '/dashboard': '',
   '/lembretes': 'Lembretes',
+  '/ag/max': 'MAX IA',
+  '/ag/obras': 'Central de Obras',
+  '/ag/agenda': 'Agenda',
   '/obras': 'Central de Obras',
   '/agenda': 'Agenda',
   '/nova-obra': 'Nova Obra',
@@ -16,21 +19,25 @@ const TITULOS = {
 export default function Topbar() {
   const [searchAberto, setSearchAberto] = useState(false);
   const [notifAberto, setNotifAberto] = useState(false);
-  const { notificacoes, marcarNotificacoesLidas } = useApp();
+  const { notificacoes, marcarNotificacoesLidas, marcarUmaLida, limparNotificacoesLidas } = useApp();
   const { usuario } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const novas = notificacoes.filter((n) => n.nova).length;
+  const naoLidas = notificacoes.filter((n) => !n.lida).length;
   const saudacao = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
-  const titulo = location.pathname === '/' || location.pathname === '/dashboard'
-    ? `${saudacao}, ${usuario?.nome || ''}`
-    : location.pathname.startsWith('/obras/') && location.pathname.length > 7
-    ? 'Detalhe da Obra'
-    : (TITULOS[location.pathname] ?? '');
+  const titulo = (() => {
+    if (location.pathname === '/' || location.pathname === '/dashboard') {
+      const docTitle = document.title.replace(' · MAXIBELL', '').trim();
+      if (docTitle && docTitle !== 'MAXIBELL OS' && !docTitle.includes('Painel')) return docTitle;
+      return `${saudacao}, ${usuario?.nome || ''}`;
+    }
+    if (location.pathname.startsWith('/obras/') && location.pathname.length > 7) return 'Detalhe da Obra';
+    return TITULOS[location.pathname] ?? '';
+  })();
 
   function toggleNotificacoes() {
     setNotifAberto((v) => !v);
-    marcarNotificacoesLidas();
   }
 
   return (
@@ -39,23 +46,76 @@ export default function Topbar() {
         {titulo && <div className="topbar-titulo">{titulo}</div>}
         <div className="topbar-spacer" />
         <button className="topbar-search" onClick={() => setSearchAberto(true)}><span>⌕</span><span>Buscar obra...</span></button>
-        <button className="topbar-notif" onClick={toggleNotificacoes}>
-          !
-          {novas > 0 && <span className="notif-indicator" />}
+        <button
+          className={`topbar-notif ${novas > 0 ? 'tem-novas' : ''}`}
+          onClick={toggleNotificacoes}
+        >
+          🔔
+          {naoLidas > 0 && (
+            <span className="notif-badge">{naoLidas > 9 ? '9+' : naoLidas}</span>
+          )}
         </button>
       </header>
       {notifAberto && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 98 }}
+          onClick={() => setNotifAberto(false)}
+        />
+      )}
+      {notifAberto && (
         <div className="notif-panel">
-          <div className="notif-panel-hdr">Notificações</div>
-          {notificacoes.length === 0 && <div className="notif-item"><div className="fs-12">Nenhuma notificação no momento.</div></div>}
-          {notificacoes.slice(0, 8).map((n) => (
-            <button className={`notif-item ${n.nova ? 'nova' : ''}`} key={n.id} onClick={() => n.obraId && navigate(`/obras/${n.obraId}`)}>
-              <span style={{ width: 7, height: 7, marginTop: 5, borderRadius: 999, background: n.cor || '#1E5799', flexShrink: 0 }} />
-              <div>
-                <div className="fs-12">{n.texto}</div>
-                <div className="fs-11 text-muted">{n.data} · {n.hora}</div>
+          <div className="notif-panel-hdr">
+            <span>Notificações</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {notificacoes.some((n) => n.lida) && (
+                <button className="notif-limpar-btn" onClick={limparNotificacoesLidas}>
+                  Limpar lidas
+                </button>
+              )}
+              {novas > 0 && (
+                <button className="notif-limpar-btn" onClick={marcarNotificacoesLidas}>
+                  Marcar todas como lidas
+                </button>
+              )}
+            </div>
+          </div>
+
+          {notificacoes.length === 0 && (
+            <div className="notif-vazio">
+              <div className="fs-13 text-muted">Nenhuma notificação.</div>
+            </div>
+          )}
+
+          {notificacoes.map((n) => (
+            <div
+              key={n.id}
+              className={`notif-item ${n.nova ? 'nova' : ''} ${n.lida ? 'lida' : ''}`}
+              onClick={() => {
+                marcarUmaLida(n.id);
+                if (n.obraId) {
+                  navigate(`/obras/${n.obraId}`);
+                  setNotifAberto(false);
+                }
+              }}
+            >
+              <span
+                className="notif-dot"
+                style={{ background: n.lida ? 'var(--cinza-borda)' : (n.cor || 'var(--azul)') }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="notif-texto">{n.texto}</div>
+                <div className="notif-meta">{n.data} · {n.hora}</div>
               </div>
-            </button>
+              {!n.lida && (
+                <button
+                  className="notif-marcar-btn"
+                  onClick={(e) => { e.stopPropagation(); marcarUmaLida(n.id); }}
+                  title="Marcar como lida"
+                >
+                  ✓
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
