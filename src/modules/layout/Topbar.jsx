@@ -26,6 +26,8 @@ export default function Topbar() {
   const novas = notificacoes.filter((n) => n.nova).length;
   const naoLidas = notificacoes.filter((n) => !n.lida).length;
   const saudacao = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
+  const rotasSemVoltar = ['/', '/dashboard'];
+  const mostrarVoltar = !rotasSemVoltar.includes(location.pathname);
   const titulo = (() => {
     if (location.pathname === '/' || location.pathname === '/dashboard') {
       const docTitle = document.title.replace(' · MAXIBELL', '').trim();
@@ -43,6 +45,15 @@ export default function Topbar() {
   return (
     <>
       <header className="topbar">
+        {mostrarVoltar && (
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ marginRight: 12, flexShrink: 0 }}
+            onClick={() => navigate(-1)}
+          >
+            ←
+          </button>
+        )}
         {titulo && <div className="topbar-titulo">{titulo}</div>}
         <div className="topbar-spacer" />
         <button className="topbar-search" onClick={() => setSearchAberto(true)}><span>⌕</span><span>Buscar obra...</span></button>

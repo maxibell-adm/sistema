@@ -126,3 +126,4 @@
 .btn-radar-area:hover{border-color:var(--azul-claro);background:var(--azul-bg);box-shadow:0 5px 16px rgba(26,58,92,.12);transform:translateY(-1px)}
 .btn-radar-area b{font-family:'Montserrat',sans-serif;font-size:13px;color:var(--azul)}
 .btn-radar-area small{font-size:11px;color:var(--cinza-medio)}
+.lista-previa-wrap{max-width:680px;margin:0 auto;padding:16px}

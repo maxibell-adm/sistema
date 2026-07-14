@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ETAPAS, labelEtapa } from '@/config/etapas.js';
+import { usuarioPorRole } from '@/config/usuarios.js';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 import { useObras } from '@/modules/obras/useObras.js';
@@ -13,6 +14,7 @@ import DiarioInstalacao from './DiarioInstalacao.jsx';
 import FasesObra from './FasesObra.jsx';
 import HistoricoObra from './HistoricoObra.jsx';
 import ModalAvancarEtapa from './ModalAvancarEtapa.jsx';
+import ModalIniciarMontagem from './ModalIniciarMontagem.jsx';
 import ObraDetalheAllana from './ObraDetalheAllana.jsx';
 import ProximaAcao from './ProximaAcao.jsx';
 import Badge from '@/modules/ui/Badge.jsx';
@@ -57,8 +59,9 @@ export default function ObraDetalhe() {
   const { id } = useParams();
   const { usuario } = useAuth();
   const { obrasVisiveis } = useObras();
-  const { atualizarVhsys, atualizarObra } = useObrasContext();
+  const { atualizarVhsys, atualizarObra, gerarNotificacao } = useObrasContext();
   const [modal, setModal] = useState(false);
+  const [modalMontagem, setModalMontagem] = useState(false);
   const [confirmarVhsys, setConfirmarVhsys] = useState(null);
   const obra = obrasVisiveis.find((o) => o.id === id);
 
@@ -86,6 +89,30 @@ export default function ObraDetalhe() {
       return;
     }
     atualizarVhsys(obra.id, campo, novoValor);
+  }
+
+  function confirmarInicioMontagem() {
+    const agora = new Date();
+    atualizarObra(obra.id, {
+      montagemIniciada: true,
+      montagemIniciadaEm: agora.toISOString(),
+      historico: [...(obra.historico || []), {
+        data: agora.toLocaleDateString('pt-BR'),
+        hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        usuario: usuario.nome,
+        acao: 'Montagem iniciada',
+        desc: 'Checklist de produção confirmado. Montagem autorizada.',
+        tipo: 'etapa',
+      }],
+    });
+    gerarNotificacao({
+      para: usuarioPorRole('admin')?.nome,
+      texto: `Montagem iniciada: ${obra.pp} — ${obra.cliente}. Checklist de produção confirmado por ${usuario.nome}.`,
+      tipo: 'sucesso',
+      cor: '#27AE60',
+      obraId: obra.id,
+    });
+    setModalMontagem(false);
   }
 
   return (
@@ -135,6 +162,14 @@ export default function ObraDetalhe() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {obra.etapa === 'montagem' && !obra.montagemIniciada && ['admin', 'operacional'].includes(usuario.role) && (
+                  <Button variant="success" onClick={() => setModalMontagem(true)}>
+                    ▶ Iniciar Montagem
+                  </Button>
+                )}
+                {obra.etapa === 'montagem' && obra.montagemIniciada && (
+                  <span className="badge badge-ok">✅ Montagem em andamento</span>
+                )}
                 {obra.pendencia?.aberta && <Badge classe="badge-alerta">Pendência</Badge>}
                 <Badge classe="badge-info">{labelEtapa(obra.etapa)}</Badge>
                 <Badge classe={prazo.classe}>{prazo.label}</Badge>
@@ -195,6 +230,13 @@ export default function ObraDetalhe() {
         </aside>
       </div>
       {modal && <ModalAvancarEtapa obra={obra} onClose={() => setModal(false)} />}
+      {modalMontagem && (
+        <ModalIniciarMontagem
+          obra={obra}
+          onClose={() => setModalMontagem(false)}
+          onConfirmar={confirmarInicioMontagem}
+        />
+      )}
       {confirmarVhsys && (
         <Modal
           titulo="Alterar número VHSYS"

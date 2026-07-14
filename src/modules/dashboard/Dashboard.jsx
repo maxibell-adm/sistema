@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { carregarUsuarios, usuarioPorRole } from '@/config/usuarios.js';
 import { ETAPAS, labelEtapa } from '@/config/etapas.js';
@@ -7,7 +7,7 @@ import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { useObras } from '@/modules/obras/useObras.js';
 import { calcPrazo } from '@/rules/prazosRules.js';
 import { atrasosDePrazo, usuarioPorNome } from '@/rules/alertas.js';
-import { atividadesPorPerfil, gerarPendencias } from '@/rules/eventosRules.js';
+import { atividadesPorPerfil, calcularSaudeObra, gerarPendencias } from '@/rules/eventosRules.js';
 import { detectarRiscoAtraso, detectarSobrecarga } from '@/modules/ia/analiseDados.js';
 import AgendaVisualCard from '@/modules/agenda/AgendaVisualCard.jsx';
 import ObraCard from '@/modules/obras/ObraCard.jsx';
@@ -36,14 +36,9 @@ const TEMAS_SEMANA_ANA = {
 };
 
 const ROTINA_DIARIA_ANDRE = [
-  { id: 'rd1', texto: 'Passar em todos os setores da produção para levantar pendências' },
-  { id: 'rd2', texto: 'Verificar se existe alguma produção parada' },
-  { id: 'rd3', texto: 'Conferir necessidades dos fabricantes' },
-  { id: 'rd4', texto: 'Lançar horas paradas de produção' },
-  { id: 'rd5', texto: 'Recolher formulários de despesas das equipes de instalação' },
-  { id: 'rd6', texto: 'Dar andamento nas pendências das instalações' },
-  { id: 'rd7', texto: 'Conferir baixa de perfis no estoque' },
-  { id: 'rd8', texto: 'Conferir baixa do almoxarifado' },
+  { id: 'r1', emoji: '📋', texto: 'Conferir relatório de pendências de material dos montadores' },
+  { id: 'r2', emoji: '⏱️', texto: 'Lançar horas paradas de produção' },
+  { id: 'r3', emoji: '📄', texto: 'Recolher formulários de despesas das equipes de instalação' },
 ];
 
 const TEMAS_SEMANA_ANDRE = {
@@ -55,8 +50,8 @@ const TEMAS_SEMANA_ANDRE = {
   },
   2: {
     emoji: '⚙️',
-    titulo: 'Terça — Produção e Liberação',
-    objetivo: 'Garantir obras prontas para produção.',
+    titulo: 'Terça — Produção e Compras',
+    objetivo: 'Garantir obras prontas para produção e compras em dia.',
     itens: ['Conferir obras liberadas para compra pela Allana', 'Liberar contramarcos para fabricação', 'Separar perfis do estocão', 'Consolidar lista de compras da semana'],
   },
   3: {
@@ -146,7 +141,7 @@ function CompromissoCheckAndre({ item }) {
   return (
     <div className={`compromisso-check-item ${feito ? 'feito' : ''}`} onClick={toggle} role="checkbox" aria-checked={feito}>
       <span className={`check-box ${feito ? 'checked' : ''}`}>{feito ? '✓' : ''}</span>
-      <span className="check-texto">{item.texto}</span>
+      <span className="check-texto">{item.emoji ? `${item.emoji} ` : ''}{item.texto}</span>
     </div>
   );
 }
@@ -492,6 +487,262 @@ function temMaterialNaoEntregue(obra) {
     || compraComPedidoAberto(obra.compras?.perfil);
 }
 
+function normalizarNomeChave(nome) {
+  return (nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function BriefingOperacional({ usuario, blocos, onConcluir }) {
+  const [tempoInicio] = useState(Date.now());
+  const [podeConfirmar, setPodeConfirmar] = useState(false);
+  const [duvida, setDuvida] = useState('');
+  const [mostrarDuvida, setMostrarDuvida] = useState(false);
+  const [resposta, setResposta] = useState(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setPodeConfirmar(true), 30000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const isDev = typeof window !== 'undefined' && window.location.search.includes('dev=1');
+  const podeConfirmarFinal = podeConfirmar || isDev;
+
+  function concluir() {
+    const agora = new Date();
+    const tempoSegundos = Math.round((Date.now() - tempoInicio) / 1000);
+    const hoje = agora.toDateString();
+    const registro = {
+      lido: true,
+      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      tempoSegundos,
+      leituraRapida: tempoSegundos < 15,
+      duvida: mostrarDuvida ? duvida : null,
+    };
+    const nomeChave = normalizarNomeChave(usuario.nome);
+    localStorage.setItem(`maxibell.abertura.${nomeChave}.${hoje}`, 'true');
+    localStorage.setItem(`maxibell.abertura.registro.${nomeChave}.${hoje}`, JSON.stringify(registro));
+
+    if (mostrarDuvida && duvida.trim()) {
+      const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
+      lembretes.unshift({
+        id: `duvida-briefing-${Date.now()}`,
+        titulo: `Dúvida no briefing — ${usuario.nome}`,
+        descricao: duvida.trim(),
+        responsavel: 'Álvaro',
+        tag: 'urgente',
+        criadoEm: agora.toLocaleDateString('pt-BR'),
+        criadoPor: usuario.nome,
+        concluido: false,
+      });
+      localStorage.setItem('maxibell.lembretes.app', JSON.stringify(lembretes));
+    }
+    onConcluir();
+  }
+
+  const saudacao = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Bom dia';
+    if (h < 18) return 'Boa tarde';
+    return 'Boa noite';
+  })();
+
+  return (
+    <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--azul)' }}>
+          {saudacao}, {usuario.nome}.
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--cinza-medio)', marginTop: 4 }}>
+          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </div>
+      </div>
+
+      {blocos.map((bloco, i) => (
+        bloco.itens?.length > 0 || bloco.conteudo ? (
+          <section key={i} className="card card-pad mb-12">
+            <div className="section-titulo mb-10">{bloco.emoji} {bloco.titulo}</div>
+            {bloco.conteudo}
+            {bloco.itens?.map((item, j) => (
+              <div key={j} style={{ fontSize: 12, color: 'var(--cinza-escuro)', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)', display: 'flex', gap: 8 }}>
+                <span style={{ color: 'var(--azul)', flexShrink: 0 }}>•</span>
+                <span>{item}</span>
+              </div>
+            ))}
+          </section>
+        ) : null
+      ))}
+
+      <section className="card card-pad mb-16">
+        <div className="section-titulo mb-12">Tudo entendido?</div>
+        {!resposta && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ flex: 1 }}
+              onClick={() => setResposta('sim')}
+            >
+              ✅ Sim, estou pronto
+            </button>
+            <button
+              className="btn btn-secondary btn-sm"
+              style={{ flex: 1 }}
+              onClick={() => { setResposta('duvida'); setMostrarDuvida(true); }}
+            >
+              ❓ Tenho uma dúvida
+            </button>
+          </div>
+        )}
+        {resposta === 'sim' && (
+          <div style={{ fontSize: 12, color: 'var(--verde)' }}>✅ Ótimo! Pode confirmar abaixo.</div>
+        )}
+        {mostrarDuvida && (
+          <div style={{ marginTop: 12 }}>
+            <textarea
+              value={duvida}
+              onChange={(e) => setDuvida(e.target.value)}
+              placeholder="Descreva sua dúvida ou observação..."
+              rows={3}
+              style={{ width: '100%' }}
+              autoFocus
+            />
+            <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 4 }}>
+              Sua dúvida será enviada para o Álvaro como lembrete urgente.
+            </div>
+          </div>
+        )}
+      </section>
+
+      <button
+        className="btn btn-primary"
+        style={{ width: '100%', padding: '14px', fontSize: 14, fontWeight: 700, opacity: podeConfirmarFinal ? 1 : 0.5 }}
+        disabled={!podeConfirmarFinal || (mostrarDuvida && !duvida.trim()) || !resposta}
+        onClick={concluir}
+      >
+        ✅ Estou ciente — Entrar na Central
+      </button>
+
+      {!podeConfirmarFinal && (
+        <div style={{ fontSize: 11, color: 'var(--cinza-medio)', textAlign: 'center', marginTop: 8 }}>
+          O botão será habilitado em instantes. Leia com atenção.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ListaPrevia({ titulo, subtitulo, obras, onVoltar, cor }) {
+  const navigate = useNavigate();
+  const lista = obras || [];
+
+  return (
+    <div className="lista-previa-wrap">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={onVoltar}
+        >
+          ← Voltar
+        </button>
+        <div>
+          <div style={{
+            fontFamily: 'Montserrat,sans-serif',
+            fontSize: 16,
+            fontWeight: 800,
+            color: cor || 'var(--azul)',
+          }}>
+            {titulo}
+          </div>
+          {subtitulo && (
+            <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 2 }}>
+              {subtitulo}
+            </div>
+          )}
+        </div>
+        <span className="badge badge-info" style={{ marginLeft: 'auto' }}>
+          {lista.length} obra(s)
+        </span>
+      </div>
+
+      {lista.length === 0 ? (
+        <div className="empty-state">Nenhuma obra encontrada.</div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {lista.map((obra) => {
+            const etapaConfig = ETAPAS.find((e) => e.id === obra.etapa);
+            const prazo = calcPrazo(obra.prazo);
+            return (
+              <button
+                key={obra.id}
+                onClick={() => navigate(`/obras/${obra.id}`)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 14,
+                  padding: '14px 16px',
+                  background: 'var(--branco)',
+                  border: '1px solid var(--cinza-borda)',
+                  borderLeft: `4px solid ${etapaConfig?.cor || cor || 'var(--azul)'}`,
+                  borderRadius: 10,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  transition: '.15s',
+                  width: '100%',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 12px rgba(26,58,92,.1)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{
+                      fontFamily: 'Montserrat,sans-serif',
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: 'var(--cinza-medio)',
+                      textTransform: 'uppercase',
+                    }}>
+                      {obra.pp}
+                    </span>
+                    <span style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: 'var(--azul)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}>
+                      {obra.cliente}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>
+                    📍 {obra.cidade}
+                    {obra.responsavel && ` · ${obra.responsavel}`}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                  <span style={{
+                    background: etapaConfig?.cor || 'var(--azul)',
+                    color: '#fff',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: 4,
+                    textTransform: 'uppercase',
+                  }}>
+                    {etapaConfig?.label || obra.etapa}
+                  </span>
+                  <span className={`badge ${prazo.classe}`} style={{ fontSize: 10 }}>
+                    {prazo.label}
+                  </span>
+                </div>
+                <span style={{ fontSize: 16, color: 'var(--cinza-borda)', marginLeft: 4 }}>›</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { usuario } = useAuth();
   const { obrasVisiveis } = useObras();
@@ -503,22 +754,29 @@ export default function Dashboard() {
   const [telaAna, setTelaAna] = useState(1);
   const [mostrarUrgencias, setMostrarUrgencias] = useState(false);
   const [filtroAllana, setFiltroAllana] = useState('ativos');
+  const [alertaAberto, setAlertaAberto] = useState(null);
+  const [listaPreviaAlvaro, setListaPreviaAlvaro] = useState(null);
   const hojeLocal = new Date().toDateString();
+  const hojeRadarAlvaro = new Date().toDateString();
+  const [radarFeitoAlvaro, setRadarFeitoAlvaro] = useState(() =>
+    localStorage.getItem(`maxibell.radar.alvaro.${hojeRadarAlvaro}`) === 'true'
+  );
+  const [slideAtual, setSlideAtual] = useState(0);
   const [refreshAna, setRefreshAna] = useState(0);
   const [followupsAnaAberto, setFollowupsAnaAberto] = useState(false);
   const [sugestoesManutAna, setSugestoesManutAna] = useState({});
   const [matheusAmanhaOk, setMatheusAmanhaOk] = useState(
     localStorage.getItem(`maxibell.matheus.amanha.${hojeLocal}`) === 'true'
   );
-  const hojeAndre = new Date().toDateString();
-  const [fluxoEntrada, setFluxoEntrada] = useState(() => {
-    const feito = localStorage.getItem(`maxibell.andre.fluxo.${hojeAndre}`);
-    const hora = new Date().getHours();
-    if (feito === 'true' || hora >= 9) return 'painel';
-    return 'tela1';
-  });
-  const [amanhaConfirmado, setAmanhaConfirmado] = useState(
-    localStorage.getItem(`maxibell.andre.amanha.${hojeAndre}`) === 'true'
+  const hojeBriefing = new Date().toDateString();
+  const [briefingAndreFeito, setBriefingAndreFeito] = useState(() =>
+    localStorage.getItem(`maxibell.abertura.${normalizarNomeChave(usuario.nome)}.${hojeBriefing}`) === 'true'
+  );
+  const [briefingAnaFeito, setBriefingAnaFeito] = useState(() =>
+    localStorage.getItem(`maxibell.abertura.${normalizarNomeChave(usuario.nome)}.${hojeBriefing}`) === 'true'
+  );
+  const [briefingMathFeito, setBriefingMathFeito] = useState(() =>
+    localStorage.getItem(`maxibell.abertura.${normalizarNomeChave(usuario.nome)}.${hojeBriefing}`) === 'true'
   );
   const [lembretes] = useState(() => {
     return lerArrayLocalStorage('maxibell.lembretes.matheus', LEMBRETES_FIXOS_MATHEUS);
@@ -549,6 +807,14 @@ export default function Dashboard() {
   const abrirObraDaAtividade = (atividade) => {
     const obra = obrasVisiveis.find((o) => o.id === atividade.obraId || o.pp === atividade.pp);
     if (obra) navigate(`/obras/${obra.id}`);
+  };
+  const abrirListaOuObra = (obras, setLista, dadosLista) => {
+    const lista = obras || [];
+    if (lista.length === 1) {
+      navigate(`/obras/${lista[0].id}`);
+    } else if (lista.length > 1) {
+      setLista({ ...dadosLista, obras: lista });
+    }
   };
 
   if (role === 'supervisor') {
@@ -588,6 +854,52 @@ export default function Dashboard() {
         lembretesApp.map((lembrete) => lembrete.id === lembreteId ? { ...lembrete, concluido: true } : lembrete)
       ));
       setRefreshAna((valor) => valor + 1);
+    }
+
+    if (!briefingAnaFeito) {
+      const alertasCriticos = (notificacoes || []).filter((n) => !n.lida && n.tipo === 'urgente').slice(0, 3);
+      const blocos = [
+        {
+          emoji: '🔴',
+          titulo: 'Antes de tudo',
+          itens: ['Verificar mensagens e tarefas abertas no Kommo'],
+          conteudo: (
+            <a href="https://maxibell.kommo.com" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ display: 'inline-block', marginBottom: 8 }}>
+              Abrir Kommo →
+            </a>
+          ),
+        },
+        urgenciasAmanha.length > 0 ? {
+          emoji: '📢',
+          titulo: 'Clientes a avisar hoje',
+          conteudo: (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {urgenciasAmanha.map((a) => (
+                <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)' }}>
+                  <span className="badge badge-alerta">{a.tipo}</span>
+                  <span className="fs-12 fw-700">{a.cliente}</span>
+                  <span className="fs-11 text-muted">📍 {a.cidade}</span>
+                </div>
+              ))}
+            </div>
+          ),
+          itens: [],
+        } : null,
+        temaHoje ? {
+          emoji: temaHoje.emoji,
+          titulo: temaHoje.titulo,
+          conteudo: <div className="text-muted fs-11 mb-8">{temaHoje.objetivo}</div>,
+          itens: temaHoje.itens,
+        } : null,
+        alertasCriticos.length > 0 ? {
+          emoji: '🚨',
+          titulo: 'Alertas críticos',
+          itens: alertasCriticos.map((n) => n.texto),
+          conteudo: null,
+        } : null,
+      ].filter(Boolean);
+
+      return <BriefingOperacional usuario={usuario} blocos={blocos} onConcluir={() => setBriefingAnaFeito(true)} />;
     }
 
     return (
@@ -744,8 +1056,6 @@ export default function Dashboard() {
   }
 
   if (role === 'operacional') {
-    const horaAtual = new Date().getHours();
-    const saudacao = horaAtual < 12 ? 'Bom dia' : horaAtual < 18 ? 'Boa tarde' : 'Boa noite';
     const temaAndre = TEMAS_SEMANA_ANDRE[new Date().getDay()];
     const agendaAndre = atividadesPerfil.filter((a) => a.data === hojeIso && tipoAgendaOperacional(a.tipo));
     const agendaAndreAmanha = atividadesPerfil.filter((a) => a.data === amanhaIso && tipoAgendaOperacional(a.tipo));
@@ -774,122 +1084,115 @@ export default function Dashboard() {
     const obrasMontagem = obrasVisiveis.filter((o) => o.etapa === 'montagem' && !o.montagemIniciada);
     const obrasManutencao = obrasVisiveis.filter((o) => o.etapa === 'manutencao');
     const obrasVHSYS = obrasVisiveis.filter((o) => o.etapa === 'pedido_inicial' && !o.vhsysEsquadria?.trim());
-    const obrasAtraso = obrasVisiveis.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido' && !['finalizado', 'manutencao'].includes(o.etapa));
+    const obrasAtraso = obrasVisiveis.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido' && o.etapa !== 'finalizado');
     const obrasFabricacaoCM = obrasVisiveis.filter((o) => o.etapa === 'fabricacao_contramarco');
-    const obrasComprasNovas = obrasCompras.filter((o) => diasDesdePainel(o.atualizadoEm) <= 3);
-    const obrasComprasAtrasadas = obrasCompras.filter(temCompraAtrasada);
-    const obrasMateriaisPendentes = obrasCompras.filter(temMaterialNaoEntregue);
+    const obrasComprasOrdenadas = [...obrasCompras]
+      .sort((a, b) => calcularSaudeObra(a).valor - calcularSaudeObra(b).valor);
+    const comprasComPerfil = obrasComprasOrdenadas.filter((o) => o.compras?.perfil?.status !== 'ok');
+    const comprasComVidro = obrasComprasOrdenadas.filter((o) => o.compras?.vidro?.status !== 'ok' && o.compras?.vidro?.status !== undefined);
+    const comprasSemPerfil = obrasComprasOrdenadas.filter((o) => !comprasComPerfil.includes(o));
+    const obrasComprasNovas = obrasComprasOrdenadas.filter((o) => {
+      const base = new Date(o.atualizadoEm || o.criadoEm).getTime();
+      if (Number.isNaN(base)) return false;
+      const dias = Math.floor((Date.now() - base) / 86400000);
+      return dias <= 3;
+    });
+    const obrasComprasAtrasadas = obrasComprasOrdenadas.filter(temCompraAtrasada);
+    const obrasMateriaisPendentes = obrasComprasOrdenadas.filter(temMaterialNaoEntregue);
+    const instalacaoOrdenada = [...obrasInstalacao].sort((a, b) => calcularSaudeObra(a).valor - calcularSaudeObra(b).valor);
+    const entregaCMOrdenada = [...obrasEntregaCM].sort((a, b) => calcularSaudeObra(a).valor - calcularSaudeObra(b).valor);
+    const manutencaoOrdenada = [...obrasManutencao].sort((a, b) => calcularSaudeObra(a).valor - calcularSaudeObra(b).valor);
+    const instAtraso = obrasAtraso.filter((o) => o.etapa === 'instalacao');
+    const compAtraso = obrasAtraso.filter((o) => o.etapa === 'compras');
+    const entAtraso = obrasAtraso.filter((o) => ['entrega', 'entrega_cm'].includes(o.etapa));
+    const fabAtraso = obrasAtraso.filter((o) => o.etapa === 'fabricacao_contramarco');
+    const manutAtraso = obrasAtraso.filter((o) => o.etapa === 'manutencao');
     const alertasAndre = [];
 
-    function addAlerta(qtd, descricao, filtro) {
-      if (qtd > 0) alertasAndre.push({ qtd, descricao, filtro });
+    function addAlerta(qtd, descricao, filtro, obras) {
+      if (qtd > 0) alertasAndre.push({ qtd, descricao, filtro, obras });
     }
 
     if (diaSemana === 1) {
-      addAlerta(obrasFabricacaoCM.length, 'contramarco(s) em fabricação', 'fabricacao_contramarco');
-      addAlerta(obrasMontagem.length, 'obra(s) em montagem sem início registrado', 'montagem_sem_inicio');
+      addAlerta(obrasFabricacaoCM.length, 'contramarco(s) disponíveis para fabricação', 'fabricacao_contramarco', obrasFabricacaoCM);
+      addAlerta(obrasMontagem.length, 'obra(s) em montagem sem início registrado', 'montagem_sem_inicio', obrasMontagem);
     }
     if (diaSemana === 2) {
-      addAlerta(obrasComprasNovas.length, 'obra(s) novas em Compras nos últimos 3 dias', 'compras_novas');
-      addAlerta(obrasComprasAtrasadas.length, 'obra(s) em Compras com itens atrasados', 'compras_atrasadas');
+      addAlerta(obrasComprasNovas.length, 'obra(s) novas em Compras (últimos 3 dias)', 'compras_novas', obrasComprasNovas);
+      addAlerta(obrasComprasAtrasadas.length, 'obra(s) em Compras com itens atrasados', 'compras_atrasadas', obrasComprasAtrasadas);
     }
     if (diaSemana === 3) {
-      addAlerta(obrasInstalacao.length, 'instalação(ões) sem agendamento', 'instalacao_sem_agenda');
-      addAlerta(obrasEntregaCM.length, 'contramarco(s) prontos para entrega sem agendamento', 'entrega_cm_sem_agenda');
-      addAlerta(obrasManutencao.length, 'manutenção(ões) pendentes', 'manutencao');
+      addAlerta(instalacaoOrdenada.length, 'instalação(ões) prontas — agendar', 'instalacao_sem_agenda', instalacaoOrdenada);
+      addAlerta(entregaCMOrdenada.length, 'contramarco(s) prontos para entrega — agendar', 'entrega_cm_sem_agenda', entregaCMOrdenada);
+      addAlerta(manutencaoOrdenada.length, 'manutenção(ões) pendentes — agendar', 'manutencao', manutencaoOrdenada);
     }
     if (diaSemana === 4) {
-      addAlerta(obrasMateriaisPendentes.length, 'obra(s) com materiais pedidos ainda não entregues', 'materiais_pendentes');
+      addAlerta(obrasMateriaisPendentes.length, 'obra(s) com materiais pedidos ainda não entregues', 'materiais_pendentes', obrasMateriaisPendentes);
     }
     if (diaSemana === 5) {
-      addAlerta(obrasVHSYS.length, 'VHSYS pendente(s)', 'vhsys_pendente');
-      addAlerta(obrasAtraso.filter((o) => o.etapa === 'instalacao').length, 'instalação(ões) em atraso', 'instalacao_atraso');
-      addAlerta(obrasAtraso.filter((o) => o.etapa === 'compras').length, 'compra(s) em atraso', 'compras_atraso');
-      addAlerta(obrasAtraso.filter((o) => ['entrega', 'entrega_cm'].includes(o.etapa)).length, 'entrega(s) em atraso', 'entregas_atraso');
+      addAlerta(obrasVHSYS.length, 'VHSYS pendente(s)', 'vhsys_pendente', obrasVHSYS);
+      addAlerta(instAtraso.length, 'instalação(ões) em atraso', 'instalacao_atraso', instAtraso);
+      addAlerta(fabAtraso.length, 'fab. contramarco(s) em atraso', 'fab_cm_atraso', fabAtraso);
+      addAlerta(entAtraso.length, 'entrega(s) em atraso', 'entregas_atraso', entAtraso);
+      addAlerta(manutAtraso.length, 'manutenção(ões) em atraso', 'manut_atraso', manutAtraso);
+      addAlerta(compAtraso.length, 'compra(s) em atraso', 'compras_atraso', compAtraso);
     }
 
-    function confirmarAgendaAmanha() {
-      localStorage.setItem(`maxibell.andre.amanha.${hojeAndre}`, 'true');
-      localStorage.setItem(`maxibell.andre.fluxo.${hojeAndre}`, 'true');
-      setAmanhaConfirmado(true);
-      setFluxoEntrada('painel');
-    }
-
-    function registrarPendenciaAmanha() {
-      const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
-      lembretesApp.unshift({
-        id: `andre-amanha-${Date.now()}`,
-        titulo: 'Pendências para amanhã — programação',
-        descricao: 'André sinalizou pendências na programação de amanhã.',
-        responsavel: usuario.nome,
-        tag: 'urgente',
-        criadoEm: new Date().toLocaleDateString('pt-BR'),
-        criadoPor: usuario.nome,
-        concluido: false,
-      });
-      localStorage.setItem('maxibell.lembretes.app', JSON.stringify(lembretesApp));
-      localStorage.setItem(`maxibell.andre.fluxo.${hojeAndre}`, 'true');
-      setFluxoEntrada('painel');
-    }
-
-    if (fluxoEntrada === 'tela1') {
-      return (
-        <>
-          <LembretesRecebidos usuario={usuario} />
-          <section className="card card-pad">
-            <div className="page-title mb-4">{saudacao}, André.</div>
-            <div className="text-muted fs-12 mb-16">Confira o que está programado para hoje antes de começar.</div>
-            {agendaAndre.length ? agendaAndre.map((a, i) => (
-              <button key={a.id || i} className="agenda-hoje-card" onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
-                <span className="ativ-tipo-mini">{a.tipo}</span>
-                <span className="ativ-pp-mini">{a.pp} - {a.cliente}</span>
-                <span className="ativ-cidade-mini">{a.cidade}</span>
-              </button>
-            )) : (
-              <div className="empty-state">Nenhuma atividade programada para hoje.</div>
-            )}
-            <button className="btn btn-primary mt-16" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setFluxoEntrada('tela2')}>
-              ✅ Estou ciente — Ver agenda de amanhã
-            </button>
-          </section>
-        </>
-      );
-    }
-
-    if (fluxoEntrada === 'tela2') {
-      return (
-        <>
-          <LembretesRecebidos usuario={usuario} />
-          <section className="card card-pad">
-            <div className="page-title mb-4">Agenda de Amanhã</div>
-            <div className="text-muted fs-12 mb-16">Tudo certo para amanhã?</div>
-            {agendaAndreAmanha.length ? agendaAndreAmanha.map((a, i) => (
-              <button key={a.id || i} className="agenda-hoje-card" onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
-                <span className="ativ-tipo-mini">{a.tipo}</span>
-                <span className="ativ-pp-mini">{a.pp} - {a.cliente}</span>
-                <span className="ativ-cidade-mini">{a.cidade}</span>
-              </button>
-            )) : (
-              <div className="empty-state">Nenhuma atividade programada para amanhã.</div>
-            )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
-              <button className="btn btn-primary" onClick={confirmarAgendaAmanha}>✅ Sim, estou pronto</button>
-              <button className="btn btn-secondary" onClick={registrarPendenciaAmanha}>⚠️ Não, há pendências</button>
+    if (!briefingAndreFeito) {
+      const alertasCriticos = (notificacoes || []).filter((n) => !n.lida && (n.tipo === 'urgente' || n.tipo === 'critico')).slice(0, 3);
+      const blocos = [
+        {
+          emoji: '📅',
+          titulo: 'Agenda de hoje',
+          conteudo: agendaAndre.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {agendaAndre.map((a) => (
+                <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)' }}>
+                  <span className="badge badge-info">{a.tipo}</span>
+                  <span className="fs-12 fw-700">{a.pp} — {a.cliente}</span>
+                  <span className="fs-11 text-muted">📍 {a.cidade}</span>
+                </div>
+              ))}
             </div>
-          </section>
-        </>
-      );
+          ) : <div className="text-muted fs-12">Nenhuma atividade programada para hoje.</div>,
+          itens: [],
+        },
+        {
+          emoji: '📅',
+          titulo: 'Agenda de amanhã',
+          conteudo: agendaAndreAmanha.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {agendaAndreAmanha.map((a) => (
+                <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)' }}>
+                  <span className="badge badge-info">{a.tipo}</span>
+                  <span className="fs-12 fw-700">{a.pp} — {a.cliente}</span>
+                  <span className="fs-11 text-muted">📍 {a.cidade}</span>
+                </div>
+              ))}
+            </div>
+          ) : <div className="text-muted fs-12">Nenhuma atividade programada para amanhã.</div>,
+          itens: [],
+        },
+        temaAndre ? {
+          emoji: temaAndre.emoji,
+          titulo: temaAndre.titulo,
+          conteudo: <div className="text-muted fs-11 mb-8">{temaAndre.objetivo}</div>,
+          itens: temaAndre.itens,
+        } : null,
+        alertasCriticos.length > 0 ? {
+          emoji: '🚨',
+          titulo: 'Alertas críticos',
+          conteudo: null,
+          itens: alertasCriticos.map((n) => n.texto),
+        } : null,
+      ].filter(Boolean);
+
+      return <BriefingOperacional usuario={usuario} blocos={blocos} onConcluir={() => setBriefingAndreFeito(true)} />;
     }
 
     return (
       <>
         <LembretesRecebidos usuario={usuario} />
-        {new Date().getHours() >= 14 && !amanhaConfirmado && (
-          <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: 13, color: '#92400E' }}>⚠️ A agenda de amanhã ainda não foi confirmada.</span>
-            <button className="btn btn-secondary btn-sm" onClick={() => setFluxoEntrada('tela2')}>Confirmar agora</button>
-          </div>
-        )}
         <div className="andre-painel-grid mt-16">
           <div className="andre-col">
             <div className="section-titulo mb-12">Rotina Diária</div>
@@ -924,10 +1227,96 @@ export default function Dashboard() {
 
             <div className="section-titulo mt-16 mb-12">Alertas da OS para hoje</div>
             {alertasAndre.length ? alertasAndre.map((alerta) => (
-              <div key={alerta.filtro} className="agenda-hoje-card" style={{ alignItems: 'center' }}>
-                <span className="badge badge-info">{alerta.qtd}</span>
-                <span className="ativ-pp-mini" style={{ flex: 1 }}>{alerta.descricao}</span>
-                <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/obras?filtro=${encodeURIComponent(alerta.filtro)}`)}>Ver</button>
+              <div key={alerta.filtro} style={{ marginBottom: 8 }}>
+                <button
+                  className="obra-prio-card-novo"
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 14px',
+                    borderLeft: `4px solid ${alertaAberto === alerta.filtro ? 'var(--azul)' : 'var(--cinza-borda)'}`,
+                    background: alertaAberto === alerta.filtro ? 'var(--azul-bg)' : 'var(--branco)',
+                  }}
+                  onClick={() => setAlertaAberto(alertaAberto === alerta.filtro ? null : alerta.filtro)}
+                >
+                  <span className="badge badge-info" style={{ flexShrink: 0 }}>{alerta.qtd}</span>
+                  <span style={{ flex: 1, textAlign: 'left', fontSize: 12, color: 'var(--cinza-escuro)' }}>{alerta.descricao}</span>
+                  <span style={{ fontSize: 11, color: 'var(--azul)' }}>{alertaAberto === alerta.filtro ? '▲ Fechar' : '▼ Ver'}</span>
+                </button>
+
+                {alertaAberto === alerta.filtro && alerta.obras?.length > 0 && (
+                  <div style={{ borderLeft: '4px solid var(--azul)', marginLeft: 4, paddingLeft: 12, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {alerta.filtro === 'compras_novas' || alerta.filtro === 'compras_atrasadas' ? (
+                      <>
+                        {alerta.obras.some((o) => o.compras?.perfil?.status !== 'ok') && (
+                          <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--laranja)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 2 }}>
+                            🔺 Perfil — prioridade
+                          </div>
+                        )}
+                        {[...alerta.obras]
+                          .sort((a, b) => {
+                            const aTemPerfil = a.compras?.perfil?.status !== 'ok' ? 0 : 1;
+                            const bTemPerfil = b.compras?.perfil?.status !== 'ok' ? 0 : 1;
+                            return aTemPerfil - bTemPerfil;
+                          })
+                          .map((obra) => {
+                            const prazo = calcPrazo(obra.prazo);
+                            const saude = calcularSaudeObra(obra);
+                            const temPerfil = obra.compras?.perfil?.status !== 'ok';
+                            return (
+                              <button
+                                key={obra.id}
+                                className="obra-prio-card-novo"
+                                style={{ borderLeft: `4px solid ${temPerfil ? 'var(--laranja)' : 'var(--azul-claro)'}` }}
+                                onClick={() => navigate(`/obras/${obra.id}`)}
+                              >
+                                <div style={{ flex: 1 }}>
+                                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                    <span className="obra-prio-pp">{obra.pp}</span>
+                                    {temPerfil && <span className="badge badge-alerta" style={{ fontSize: 9 }}>Perfil</span>}
+                                    {obra.compras?.vidro?.status !== 'ok' && <span className="badge badge-info" style={{ fontSize: 9 }}>Vidro</span>}
+                                  </div>
+                                  <div className="obra-prio-cliente">{obra.cliente}</div>
+                                  <div className="text-muted fs-11">{obra.cidade}</div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                                  <span className={`badge ${prazo.classe}`}>{prazo.label}</span>
+                                  <span style={{ fontSize: 10, color: saude.valor < 40 ? 'var(--vermelho)' : saude.valor < 70 ? 'var(--laranja)' : 'var(--verde)' }}>
+                                    {saude.valor}%
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                      </>
+                    ) : (
+                      alerta.obras.map((obra) => {
+                        const prazo = calcPrazo(obra.prazo);
+                        const etapaConfig = ETAPAS.find((e) => e.id === obra.etapa);
+                        return (
+                          <button
+                            key={obra.id}
+                            className="obra-prio-card-novo"
+                            style={{ borderLeft: `4px solid ${etapaConfig?.cor || 'var(--azul)'}` }}
+                            onClick={() => navigate(`/obras/${obra.id}`)}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <span className="obra-prio-pp">{obra.pp}</span>
+                              <div className="obra-prio-cliente">{obra.cliente}</div>
+                              <div className="text-muted fs-11">{obra.cidade}</div>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 3 }}>
+                              <span className={`badge ${prazo.classe}`}>{prazo.label}</span>
+                              <span className="text-muted fs-10">{etapaConfig?.label}</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             )) : (
               <div className="empty-state">✅ Nenhum alerta operacional para hoje.</div>
@@ -961,6 +1350,13 @@ export default function Dashboard() {
     );
   }
   if (role === 'admin') {
+    const totalSlides = 5;
+    const agendaHojeAlvaro = atividadesPerfil
+      .filter((a) => a.data === hojeIso)
+      .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+    const agendaAmanhaAlvaro = atividadesPerfil
+      .filter((a) => a.data === amanhaIso)
+      .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
     const diaSemana = new Date().getDay();
     const diaMes = new Date().getDate();
     const primeiraSegundaDoMes = (() => {
@@ -1001,16 +1397,82 @@ export default function Dashboard() {
     const obrasEmMontagem = obrasAtivas.filter((o) => o.etapa === 'montagem');
     const obrasEmInstalacao = obrasAtivas.filter((o) => o.etapa === 'instalacao');
     const obrasEmProjeto = obrasAtivas.filter((o) => ['projeto_contramarco', 'projeto_final'].includes(o.etapa));
+    const obrasMontagemSemInicio = obrasEmMontagem.filter((o) => !o.montagemIniciada);
+    const obrasComprasAtrasadasAlvaro = obrasEmCompras.filter(temCompraAtrasada);
+    const obrasInstalacaoSemAgenda = obrasEmInstalacao.filter((o) => !o.dataAgendada);
     const obrasSemVhsys = obrasVisiveis.filter((o) => o.etapa === 'pedido_inicial' && !o.vhsysEsquadria?.trim());
     const pendenciasParaAlvaro = obrasVisiveis.filter((o) => o.pendencia?.aberta && o.pendencia?.responsavel === 'Álvaro');
     const obrasComConflito = obrasAtivas.filter((o) => o.etapa === 'compras' && o.dataAgendada);
-    const totalAlertas = obrasAtrasadas.length + pendenciasParaAlvaro.length + obrasComConflito.length;
-    const fraseContextual = totalAlertas
-      ? `Hoje existem ${totalAlertas} pontos que merecem sua atenção antes de virarem atraso.`
-      : 'A operação está sem alertas críticos neste momento.';
-    const saudeOperacao = Math.max(0, Math.round(100 - (totalAlertas * 8) - (obrasSemVhsys.length * 4)));
-    const saudeProducao = Math.max(0, Math.round(100 - (obrasEmMontagem.length * 3) - (obrasEmInstalacao.length * 2)));
-    const saudeCompras = Math.max(0, Math.round(100 - (obrasEmCompras.length * 5) - (obrasComConflito.length * 10)));
+    const notifCriticasAlvaro = (notificacoes || []).filter((n) =>
+      !n.lida && ['bloqueio', 'urgente'].includes(n.tipo)
+    );
+    const totalAlertas = obrasAtrasadas.length + pendenciasParaAlvaro.length + obrasComConflito.length + notifCriticasAlvaro.length;
+    const fraseContextual = totalAlertas === 0
+      ? `${obrasAtivas.length} obras em andamento. Nenhum risco crítico detectado.`
+      : totalAlertas <= 2
+      ? `${totalAlertas} ponto(s) merecem sua atenção hoje.`
+      : `${totalAlertas} riscos ativos - verifique antes de começar.`;
+    const comprasAtrasadas = obrasComprasAtrasadasAlvaro;
+    const instalacaoSemAgenda = obrasInstalacaoSemAgenda;
+    const vhsysPendente = obrasSemVhsys;
+    const montagemSemInicio = obrasMontagemSemInicio;
+    const colaboradores = [
+      { nome: 'André', role: 'operacional', cor: '#27AE60' },
+      { nome: 'Allana', role: 'projetos', cor: '#2980B9' },
+      { nome: 'Matheus', role: 'medicao', cor: '#E67E22' },
+      { nome: 'Ana', role: 'comercial', cor: '#8E44AD' },
+    ];
+    const gargalosColaborador = colaboradores.map((col) => {
+      const obrasCol = obrasAtivas.filter((o) => o.responsavel === col.nome);
+      const atrasadasCol = obrasCol.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido');
+      const pendentes = obrasVisiveis.filter((o) =>
+        o.pendencia?.aberta && o.pendencia?.responsavel === col.nome
+      );
+      const seteDiasAtras = Date.now() - 7 * 86400000;
+      const movimentacoes = obrasVisiveis.filter((o) => {
+        const hist = o.historico || [];
+        return hist.some((h) => {
+          const d = new Date(h.dataISO || `${h.data?.split('/').reverse().join('-')}T00:00:00`);
+          return !Number.isNaN(d.getTime()) && d.getTime() > seteDiasAtras && h.usuario === col.nome;
+        });
+      }).length;
+      const insight = (() => {
+        if (atrasadasCol.length === 0 && pendentes.length === 0 && movimentacoes > 0) {
+          return { texto: `${movimentacoes} movimentação(ões) nos últimos 7 dias. Ritmo normal.`, cor: 'var(--verde)' };
+        }
+        if (atrasadasCol.length >= 3) {
+          return { texto: `${atrasadasCol.length} obras em atraso. Volume alto de pendências.`, cor: 'var(--vermelho)' };
+        }
+        if (pendentes.length > 0) {
+          return { texto: `${pendentes.length} pendência(s) em aberto aguardando resolução.`, cor: 'var(--laranja)' };
+        }
+        if (movimentacoes === 0 && obrasCol.length > 0) {
+          return { texto: 'Sem movimentações nos últimos 7 dias.', cor: 'var(--laranja)' };
+        }
+        return { texto: `${obrasCol.length} obra(s) em andamento. Tudo em dia.`, cor: 'var(--cinza-medio)' };
+      })();
+      return {
+        ...col,
+        totalObras: obrasCol.length,
+        atrasadas: atrasadasCol.length,
+        pendentes: pendentes.length,
+        movimentacoes,
+        insight,
+      };
+    });
+    const saudeOperacao = obrasAtivas.length > 0
+      ? Math.round((obrasAtivas.filter((o) => calcPrazo(o.prazo).classe !== 'badge-vencido').length / obrasAtivas.length) * 100)
+      : 100;
+    const saudeProducao = obrasEmMontagem.length > 0
+      ? Math.round((obrasEmMontagem.filter((o) => calcPrazo(o.prazo).classe !== 'badge-vencido').length / obrasEmMontagem.length) * 100)
+      : 100;
+    const saudeCompras = obrasEmCompras.length > 0
+      ? Math.round((obrasEmCompras.filter((o) => !o.compras?.vidro?.dataPedido || o.compras?.vidro?.status === 'ok').length / obrasEmCompras.length) * 100)
+      : 100;
+    const saudacaoAlvaro = (() => {
+      const h = new Date().getHours();
+      return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+    })();
     const gargaloCompras = obrasEmCompras.length;
     const gargaloProducao = obrasEmMontagem.length;
     const gargaloProjeto = obrasEmProjeto.length;
@@ -1030,32 +1492,71 @@ export default function Dashboard() {
         ativo: obrasAtrasadas.length > 0,
         texto: `${obrasAtrasadas.length} obra${obrasAtrasadas.length === 1 ? '' : 's'} atrasada${obrasAtrasadas.length === 1 ? '' : 's'}`,
         detalhe: 'Ver obras vencidas',
-        onClick: () => navigate('/obras', { state: { filtroPrazo: 'vencido' } }),
+        obras: obrasAtrasadas,
+        titulo: 'Obras com prazo vencido',
+        subtitulo: `${obrasAtrasadas.length} obras em atraso`,
+        cor: 'var(--vermelho)',
       },
       {
         ativo: pendenciasParaAlvaro.length > 0,
         texto: `${pendenciasParaAlvaro.length} pendência${pendenciasParaAlvaro.length === 1 ? '' : 's'} com Álvaro`,
         detalhe: 'Decisões aguardando resposta',
-        onClick: () => navigate('/obras', { state: { filtroResponsavel: 'Álvaro' } }),
+        obras: pendenciasParaAlvaro,
+        titulo: 'Pendências para Álvaro',
+        subtitulo: `${pendenciasParaAlvaro.length} obra(s) aguardando decisão`,
+        cor: 'var(--laranja)',
       },
       {
         ativo: obrasComConflito.length > 0,
         texto: `${obrasComConflito.length} conflito${obrasComConflito.length === 1 ? '' : 's'} de agenda em compras`,
         detalhe: 'Compras com data já agendada',
-        onClick: () => navigate('/obras', { state: { filtroEtapa: 'compras' } }),
+        obras: obrasComConflito,
+        titulo: 'Conflitos de agenda em compras',
+        subtitulo: `${obrasComConflito.length} obra(s) com conflito`,
+        cor: 'var(--laranja)',
       },
       {
         ativo: obrasSemVhsys.length > 0,
         texto: `${obrasSemVhsys.length} pedido${obrasSemVhsys.length === 1 ? '' : 's'} sem VHSYS`,
         detalhe: 'Completar cadastro inicial',
-        onClick: () => navigate('/obras', { state: { filtroEtapa: 'pedido_inicial' } }),
+        obras: obrasSemVhsys,
+        titulo: 'Pedidos sem VHSYS',
+        subtitulo: `${obrasSemVhsys.length} pedido(s) pendente(s)`,
+        cor: 'var(--azul)',
+      },
+      {
+        ativo: obrasMontagemSemInicio.length > 0,
+        texto: `${obrasMontagemSemInicio.length} montagem${obrasMontagemSemInicio.length === 1 ? '' : 's'} sem início`,
+        detalhe: 'Produção aguardando registro',
+        obras: obrasMontagemSemInicio,
+        titulo: 'Montagem sem início',
+        subtitulo: `${obrasMontagemSemInicio.length} obra(s) em montagem`,
+        cor: 'var(--laranja)',
+      },
+      {
+        ativo: obrasComprasAtrasadasAlvaro.length > 0,
+        texto: `${obrasComprasAtrasadasAlvaro.length} compra${obrasComprasAtrasadasAlvaro.length === 1 ? '' : 's'} atrasada${obrasComprasAtrasadasAlvaro.length === 1 ? '' : 's'}`,
+        detalhe: 'Itens de compra fora do prazo',
+        obras: obrasComprasAtrasadasAlvaro,
+        titulo: 'Compras atrasadas',
+        subtitulo: `${obrasComprasAtrasadasAlvaro.length} obra(s) com compra atrasada`,
+        cor: 'var(--vermelho)',
+      },
+      {
+        ativo: obrasInstalacaoSemAgenda.length > 0,
+        texto: `${obrasInstalacaoSemAgenda.length} ${obrasInstalacaoSemAgenda.length === 1 ? 'instalação' : 'instalações'} sem agenda`,
+        detalhe: 'Instalações aguardando data',
+        obras: obrasInstalacaoSemAgenda,
+        titulo: 'Instalação sem agenda',
+        subtitulo: `${obrasInstalacaoSemAgenda.length} obra(s) aguardando agendamento`,
+        cor: 'var(--azul)',
       },
     ].filter((alerta) => alerta.ativo);
     const areasRadar = [
-      { nome: 'Produção', total: obrasEmMontagem.length, filtro: 'montagem' },
-      { nome: 'Compras', total: obrasEmCompras.length, filtro: 'compras' },
-      { nome: 'Instalação', total: obrasEmInstalacao.length, filtro: 'instalacao' },
-      { nome: 'VHSYS', total: obrasSemVhsys.length, filtro: 'pedido_inicial' },
+      { nome: 'Produção', total: obrasEmMontagem.length, obras: obrasEmMontagem, cor: 'var(--laranja)' },
+      { nome: 'Compras', total: obrasEmCompras.length, obras: obrasEmCompras, cor: 'var(--laranja)' },
+      { nome: 'Instalação', total: obrasEmInstalacao.length, obras: obrasEmInstalacao, cor: 'var(--azul)' },
+      { nome: 'VHSYS', total: obrasSemVhsys.length, obras: obrasSemVhsys, cor: 'var(--azul)' },
     ];
     const statusArea = (total) => {
       if (total === 0) return '✅';
@@ -1067,6 +1568,246 @@ export default function Dashboard() {
       if (valor >= 60) return 'var(--laranja)';
       return 'var(--vermelho)';
     };
+
+    function concluirRadar() {
+      localStorage.setItem(`maxibell.radar.alvaro.${hojeRadarAlvaro}`, 'true');
+      const registro = {
+        lido: true,
+        hora: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        slides: totalSlides,
+      };
+      localStorage.setItem(`maxibell.abertura.registro.alvaro.${hojeRadarAlvaro}`, JSON.stringify(registro));
+      setRadarFeitoAlvaro(true);
+    }
+
+    if (!radarFeitoAlvaro) {
+      const slides = [
+        {
+          titulo: '📅 Agenda de hoje',
+          subtitulo: new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }),
+          conteudo: (
+            <>
+              {agendaHojeAlvaro.length === 0 ? (
+                <div className="empty-state">Nenhuma atividade programada para hoje.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {agendaHojeAlvaro.map((a) => {
+                    const etapaConfig = ETAPAS.find((e) => e.id === a.etapa);
+                    return (
+                      <div key={a.id} style={{ padding: '12px 14px', background: 'var(--branco)', border: '1px solid var(--cinza-borda)', borderLeft: `4px solid ${etapaConfig?.cor || 'var(--azul)'}`, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--azul)' }}>{a.pp && `${a.pp} - `}{a.cliente}</div>
+                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 2 }}>
+                            {a.tipo} · 📍 {a.cidade}{a.hora && ` · ${a.hora}`}
+                          </div>
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--cinza-medio)', flexShrink: 0 }}>{a.responsavelExecucao || a.responsavel}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ marginTop: 20 }}>
+                <div className="section-titulo mb-8">📅 Amanhã</div>
+                {agendaAmanhaAlvaro.length === 0 ? (
+                  <div className="text-muted fs-12">Nenhuma atividade programada para amanhã.</div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {agendaAmanhaAlvaro.map((a) => {
+                      const etapaConfig = ETAPAS.find((e) => e.id === a.etapa);
+                      return (
+                        <div key={a.id} style={{ padding: '8px 12px', background: 'var(--cinza-claro)', borderLeft: `3px solid ${etapaConfig?.cor || 'var(--azul-claro)'}`, borderRadius: 6, display: 'flex', gap: 10, alignItems: 'center' }}>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: 12, fontWeight: 700 }}>{a.pp && `${a.pp} - `}{a.cliente}</span>
+                            <span style={{ fontSize: 11, color: 'var(--cinza-medio)', marginLeft: 8 }}>{a.tipo} · {a.cidade}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          ),
+        },
+        {
+          titulo: '🚨 O que precisa da sua atenção',
+          subtitulo: fraseContextual,
+          conteudo: (
+            <>
+              {totalAlertas === 0 && obrasSemVhsys.length === 0 && montagemSemInicio.length === 0 ? (
+                <div className="empty-state">✅ Nenhum item crítico detectado hoje.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {notifCriticasAlvaro.map((n) => (
+                    <button key={n.id} className="btn-alerta-radar" style={{ borderLeft: '4px solid var(--vermelho)' }} onClick={() => { if (n.obraId) { concluirRadar(); navigate(`/obras/${n.obraId}`); } }}>
+                      🔴 {n.texto}
+                      <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--cinza-medio)', flexShrink: 0 }}>{n.hora}</span>
+                    </button>
+                  ))}
+                  {obrasAtrasadas.slice(0, 4).map((o) => (
+                    <button key={o.id} className="btn-alerta-radar" onClick={() => { concluirRadar(); navigate(`/obras/${o.id}`); }}>
+                      🔴 <strong>{o.pp}</strong> - {o.cliente}
+                      <span style={{ marginLeft: 'auto', fontSize: 11 }}>{labelEtapa(o.etapa)} · {calcPrazo(o.prazo).label}</span>
+                    </button>
+                  ))}
+                  {pendenciasParaAlvaro.map((o) => (
+                    <button key={o.id} className="btn-alerta-radar" onClick={() => { concluirRadar(); navigate(`/obras/${o.id}`); }}>
+                      🟠 <strong>{o.pp}</strong> - pendência: {o.pendencia?.tipo}
+                      <span style={{ marginLeft: 'auto', fontSize: 11 }}>Aguarda sua decisão</span>
+                    </button>
+                  ))}
+                  {obrasComConflito.slice(0, 2).map((o) => (
+                    <button key={o.id} className="btn-alerta-radar" onClick={() => { concluirRadar(); navigate(`/obras/${o.id}`); }}>
+                      🔴 CONFLITO: <strong>{o.pp}</strong> - instalação em {o.dataAgendada} mas em Compras
+                    </button>
+                  ))}
+                  {obrasSemVhsys.slice(0, 2).map((o) => (
+                    <button key={o.id} className="btn-alerta-radar" onClick={() => { concluirRadar(); navigate(`/obras/${o.id}`); }}>
+                      🟠 <strong>{o.pp}</strong> - {o.cliente}: VHSYS não preenchido
+                    </button>
+                  ))}
+                  {montagemSemInicio.slice(0, 2).map((o) => (
+                    <button key={o.id} className="btn-alerta-radar" onClick={() => { concluirRadar(); navigate(`/obras/${o.id}`); }}>
+                      🟡 <strong>{o.pp}</strong> - montagem sem início registrado há {Math.floor((Date.now() - new Date(o.atualizadoEm || o.criadoEm).getTime()) / 86400000)} dia(s)
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ),
+        },
+        {
+          titulo: '🕵️ Passou batido',
+          subtitulo: 'Verificações que ninguém tomou ação',
+          conteudo: (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {[
+                { label: 'Compras atrasadas', n: comprasAtrasadas.length, filtro: 'compras', desc: comprasAtrasadas.length > 0 ? comprasAtrasadas.map((o) => o.pp).join(', ') : null },
+                { label: 'Instalação sem agendamento', n: instalacaoSemAgenda.length, filtro: 'instalacao', desc: instalacaoSemAgenda.length > 0 ? instalacaoSemAgenda.map((o) => `${o.pp} - ${o.cliente}`).join(' · ') : null },
+                { label: 'VHSYS pendente', n: vhsysPendente.length, filtro: 'pedido_inicial', desc: vhsysPendente.length > 0 ? vhsysPendente.map((o) => o.pp).join(', ') : null },
+                { label: 'Montagem sem início', n: montagemSemInicio.length, filtro: 'montagem', desc: montagemSemInicio.length > 0 ? montagemSemInicio.map((o) => o.pp).join(', ') : null },
+              ].map((item) => (
+                <button key={item.label} className="btn-radar-area" onClick={() => { concluirRadar(); navigate('/obras', { state: { filtroEtapa: item.filtro } }); }}>
+                  <span style={{ fontSize: 16 }}>{item.n === 0 ? '✅' : item.n <= 2 ? '⚠️' : '🔴'}</span>
+                  <div style={{ flex: 1, textAlign: 'left' }}>
+                    <div style={{ fontWeight: 700, fontSize: 12 }}>{item.label}</div>
+                    {item.desc && <div style={{ fontSize: 10, color: 'var(--cinza-medio)', marginTop: 2 }}>{item.desc}</div>}
+                  </div>
+                  <span style={{ fontWeight: 800, fontSize: 13, color: item.n === 0 ? 'var(--verde)' : 'var(--vermelho)' }}>{item.n === 0 ? 'OK' : item.n}</span>
+                </button>
+              ))}
+            </div>
+          ),
+        },
+        {
+          titulo: '👥 Gargalos por colaborador',
+          subtitulo: 'Volume, ritmo e pendências de cada um',
+          conteudo: (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {gargalosColaborador.map((col) => (
+                <div key={col.nome} style={{ padding: '14px 16px', background: 'var(--branco)', border: '1px solid var(--cinza-borda)', borderLeft: `4px solid ${col.cor}`, borderRadius: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: '50%', background: col.cor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, flexShrink: 0 }}>{col.nome.charAt(0)}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--azul)' }}>{col.nome}</div>
+                      <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>{col.totalObras} obra(s) · {col.movimentacoes} mov. nos últimos 7 dias</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {col.atrasadas > 0 && <span className="badge badge-vencido" style={{ fontSize: 10 }}>{col.atrasadas} atraso(s)</span>}
+                      {col.pendentes > 0 && <span className="badge badge-alerta" style={{ fontSize: 10 }}>{col.pendentes} pendência(s)</span>}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: col.insight.cor, fontStyle: 'italic', paddingTop: 6, borderTop: '1px solid var(--cinza-claro)' }}>{col.insight.texto}</div>
+                </div>
+              ))}
+            </div>
+          ),
+        },
+        {
+          titulo: '💚 Saúde geral da empresa',
+          subtitulo: `${obrasAtivas.length} obras ativas · ${obrasAtrasadas.length} em atraso`,
+          conteudo: (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: 'Operação', valor: saudeOperacao },
+                  { label: 'Produção', valor: saudeProducao },
+                  { label: 'Compras', valor: saudeCompras },
+                ].map((s) => (
+                  <div key={s.label} style={{ padding: '16px 12px', background: 'var(--branco)', border: '1px solid var(--cinza-borda)', borderRadius: 10, textAlign: 'center' }}>
+                    <div style={{ fontSize: 32, fontWeight: 800, fontFamily: 'Montserrat,sans-serif', color: corSaude(s.valor) }}>{s.valor}%</div>
+                    <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 4 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="section-titulo mb-10">Gargalos por etapa</div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'Compras', n: obrasEmCompras.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido').length },
+                  { label: 'Projetos', n: obrasAtivas.filter((o) => ['projeto_contramarco', 'projeto_final'].includes(o.etapa) && calcPrazo(o.prazo).classe === 'badge-vencido').length },
+                  { label: 'Produção', n: obrasAtivas.filter((o) => o.etapa === 'montagem' && calcPrazo(o.prazo).classe === 'badge-vencido').length },
+                  { label: 'Instalação', n: obrasAtivas.filter((o) => o.etapa === 'instalacao' && calcPrazo(o.prazo).classe === 'badge-vencido').length },
+                ].map((g) => (
+                  <div key={g.label} style={{ flex: 1, minWidth: 80, textAlign: 'center', padding: '10px 8px', background: 'var(--cinza-claro)', borderRadius: 8 }}>
+                    <div style={{ fontSize: 22 }}>{g.n === 0 ? '🟢' : g.n <= 2 ? '🟡' : '🔴'}</div>
+                    <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 4 }}>{g.label}</div>
+                    {g.n > 0 && <div style={{ fontSize: 10, color: 'var(--vermelho)', fontWeight: 700 }}>{g.n} atraso(s)</div>}
+                  </div>
+                ))}
+              </div>
+            </>
+          ),
+        },
+      ];
+      const slide = slides[slideAtual];
+      const ehUltimo = slideAtual === totalSlides - 1;
+
+      return (
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px' }}>
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--cinza-medio)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
+              {saudacaoAlvaro}, Álvaro · {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+            </div>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+              {slides.map((_, i) => (
+                <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= slideAtual ? 'var(--azul)' : 'var(--cinza-borda)', transition: 'background .2s' }} />
+              ))}
+            </div>
+            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 20, fontWeight: 800, color: 'var(--azul)' }}>{slide.titulo}</div>
+            {slide.subtitulo && <div style={{ fontSize: 12, color: 'var(--cinza-medio)', marginTop: 4 }}>{slide.subtitulo}</div>}
+          </div>
+          <div style={{ marginBottom: 24 }}>{slide.conteudo}</div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {slideAtual > 0 && (
+              <button className="btn btn-secondary btn-sm" onClick={() => setSlideAtual((s) => s - 1)}>← Anterior</button>
+            )}
+            <div style={{ flex: 1 }} />
+            <span style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>{slideAtual + 1} de {totalSlides}</span>
+            <div style={{ flex: 1 }} />
+            {!ehUltimo ? (
+              <button className="btn btn-primary btn-sm" onClick={() => setSlideAtual((s) => s + 1)}>Próximo →</button>
+            ) : (
+              <button className="btn btn-primary" style={{ padding: '10px 20px', fontWeight: 700 }} onClick={concluirRadar}>
+                ✅ Estou ciente - Entrar na Central
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    if (listaPreviaAlvaro) {
+      return (
+        <ListaPrevia
+          titulo={listaPreviaAlvaro.titulo}
+          subtitulo={listaPreviaAlvaro.subtitulo}
+          obras={listaPreviaAlvaro.obras}
+          cor={listaPreviaAlvaro.cor}
+          onVoltar={() => setListaPreviaAlvaro(null)}
+        />
+      );
+    }
 
     return (
       <>
@@ -1116,12 +1857,20 @@ export default function Dashboard() {
               {alertasRadar.length ? (
                 <div style={{ display: 'grid', gap: 8 }}>
                   {alertasRadar.map((alerta) => (
-                    <button key={alerta.texto} className="btn-alerta-radar" onClick={alerta.onClick}>
+                    <button
+                      key={alerta.texto}
+                      className="btn-alerta-radar"
+                      onClick={() => abrirListaOuObra(alerta.obras, setListaPreviaAlvaro, {
+                        titulo: alerta.titulo,
+                        subtitulo: alerta.subtitulo,
+                        cor: alerta.cor,
+                      })}
+                    >
                       <span>
                         <b>{alerta.texto}</b>
                         <small>{alerta.detalhe}</small>
                       </span>
-                      <span>Ver</span>
+                      <span>{alerta.obras?.length === 1 ? 'Ver obra →' : 'Ver lista →'}</span>
                     </button>
                   ))}
                 </div>
@@ -1137,7 +1886,11 @@ export default function Dashboard() {
                   <button
                     key={item.nome}
                     className="btn-radar-area"
-                    onClick={() => navigate('/obras', { state: { filtroEtapa: item.filtro } })}
+                    onClick={() => abrirListaOuObra(item.obras, setListaPreviaAlvaro, {
+                      titulo: item.nome,
+                      subtitulo: `${item.total} obra(s) em atenção`,
+                      cor: item.cor,
+                    })}
                   >
                     <span>{statusArea(item.total)}</span>
                     <b>{item.nome}</b>
@@ -1379,6 +2132,60 @@ export default function Dashboard() {
       .filter((a) => a.data === hojeIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo))
       .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
     const compromissosAmanha = atividadesPerfil.filter((a) => a.data === amanhaIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo));
+
+    if (!briefingMathFeito) {
+      const alertasCriticos = (notificacoes || []).filter((n) => !n.lida && (n.tipo === 'urgente' || n.tipo === 'critico' || n.tipo === 'bloqueio')).slice(0, 3);
+      const blocos = [
+        {
+          emoji: '📅',
+          titulo: 'Compromissos de hoje',
+          conteudo: compromissosExternos.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {compromissosExternos.map((a) => (
+                <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)' }}>
+                  <span className={`badge ${a.tipo === 'Reunião Comercial' ? 'badge-alerta' : 'badge-info'}`}>{a.tipo}</span>
+                  <span className="fs-12 fw-700">{a.pp ? `${a.pp} - ` : ''}{a.cliente}</span>
+                  <span className="fs-11 text-muted">📍 {a.cidade}</span>
+                  {a.hora && <span className="fs-11 text-muted">{a.hora}</span>}
+                </div>
+              ))}
+            </div>
+          ) : <div className="text-muted fs-12">Nenhum compromisso externo hoje.</div>,
+          itens: [],
+        },
+        {
+          emoji: '📅',
+          titulo: 'Compromissos de amanhã',
+          conteudo: compromissosAmanha.length ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {compromissosAmanha.map((a) => (
+                <div key={a.id} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)' }}>
+                  <span className={`badge ${a.tipo === 'Reunião Comercial' ? 'badge-alerta' : 'badge-info'}`}>{a.tipo}</span>
+                  <span className="fs-12 fw-700">{a.pp ? `${a.pp} - ` : ''}{a.cliente}</span>
+                  <span className="fs-11 text-muted">📍 {a.cidade}</span>
+                  {a.hora && <span className="fs-11 text-muted">{a.hora}</span>}
+                </div>
+              ))}
+            </div>
+          ) : <div className="text-muted fs-12">Nenhum compromisso externo amanhã.</div>,
+          itens: [],
+        },
+        {
+          emoji: '📋',
+          titulo: 'Tarefas de hoje',
+          conteudo: null,
+          itens: LEMBRETES_FIXOS_MATHEUS.map((item) => item.titulo),
+        },
+        alertasCriticos.length > 0 ? {
+          emoji: '🚨',
+          titulo: 'Alertas críticos',
+          conteudo: null,
+          itens: alertasCriticos.map((n) => n.texto),
+        } : null,
+      ].filter(Boolean);
+
+      return <BriefingOperacional usuario={usuario} blocos={blocos} onConcluir={() => setBriefingMathFeito(true)} />;
+    }
 
     return (
       <>

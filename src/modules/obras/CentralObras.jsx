@@ -65,6 +65,11 @@ export default function CentralObras() {
   if (filtroAtivo === 'atrasadas') filtradas = filtradas.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido');
   if (filtroAtivo === 'compras') filtradas = filtradas.filter((o) => o.etapa === 'compras');
   if (filtroAtivo === 'finalizados') filtradas = filtradas.filter((o) => o.etapa === 'finalizado');
+
+  // Obras com instalação nunca devem aparecer na coluna entrega
+  // (a sequência já é correta, mas proteger contra dados inconsistentes)
+  const TIPOS_COM_INSTALACAO = ['COM INSTALAÇÃO / COM CONTRAMARCO', 'COM INSTALAÇÃO / SEM CONTRAMARCO'];
+
   if (location.state?.ativas) filtradas = filtradas.filter((o) => !['finalizado', 'manutencao'].includes(o.etapa));
   if (location.state?.etapas) filtradas = filtradas.filter((o) => location.state.etapas.includes(o.etapa));
   if (location.state?.alerta === 'atrasadas') filtradas = filtradas.filter((o) => o.prazo && new Date(`${o.prazo}T00:00:00`) < new Date());
@@ -137,7 +142,16 @@ export default function CentralObras() {
     return (
       <div className="kanban">
         {etapasRender.map((etapa) => {
-          const obrasEtapa = filtradas.filter((o) => o.etapa === etapa.id);
+          let obrasEtapa = filtradas.filter((o) => o.etapa === etapa.id);
+
+          if (etapa.id === 'entrega') {
+            obrasEtapa = obrasEtapa.filter((o) => o.tipo === 'SEM INSTALAÇÃO / COM ENTREGA' && !TIPOS_COM_INSTALACAO.includes(o.tipo));
+          }
+
+          if (etapa.id === 'entrega_cm') {
+            obrasEtapa = obrasEtapa.filter((o) => o.ehCardCM === true);
+          }
+
           return (
             <section
               className="kanban-col"
@@ -150,7 +164,22 @@ export default function CentralObras() {
                 if (obra && obra.etapa !== etapa.id) setDragModal({ obra, destino: etapa.id });
               }}
             >
-              <div className="kanban-col-hdr" style={{ borderTop: `3px solid ${etapa.cor}` }}><span>{etapa.label}</span><span>{obrasEtapa.length}</span></div>
+              <div className="kanban-col-hdr" style={{ borderTop: `3px solid ${etapa.cor}` }}>
+                <span>
+                  {etapa.label}
+                  {etapa.id === 'entrega' && (
+                    <div style={{ fontSize: 9, color: 'var(--cinza-medio)', fontStyle: 'italic', marginTop: 2 }}>
+                      Sem instalação
+                    </div>
+                  )}
+                  {etapa.id === 'entrega_cm' && (
+                    <div style={{ fontSize: 9, color: 'var(--cinza-medio)', fontStyle: 'italic', marginTop: 2 }}>
+                      Contramarcos
+                    </div>
+                  )}
+                </span>
+                <span>{obrasEtapa.length}</span>
+              </div>
               <div className="kanban-col-body">
                 {obrasEtapa.length
                   ? obrasEtapa.map((obra) => <ObraCard compact draggable obra={obra} key={obra.id} onDragStart={(e) => e.dataTransfer.setData('text/plain', obra.id)} />)

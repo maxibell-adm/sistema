@@ -378,6 +378,51 @@ function lerLembretesApp() {
   }
 }
 
+// -----------------------------------------------------------------
+// MOTOR DE JANELA TEMPORAL
+// Versao: pre-Firebase (roda no browser)
+// Migracao futura: Cloud Functions com Cloud Scheduler
+// Cada JANELAS_ANDRE.{dia}.encerramento vira um cron job no Firebase
+// -----------------------------------------------------------------
+
+export const JANELAS_ANDRE = {
+  1: { encerramento: 18, tema: 'producao', label: 'Segunda - Producao' },
+  2: { encerramento: 18, tema: 'compras', label: 'Terca - Compras' },
+  3: { encerramento: 18, tema: 'vhsys_instalacao', label: 'Quarta - VHSYS e Instalacao' },
+  4: { encerramento: 18, tema: 'materiais', label: 'Quinta - Materiais' },
+  5: { encerramento: 17, tema: 'auditoria', label: 'Sexta - Auditoria' },
+};
+
+// Tipos de notificacao que pertencem a cada tema
+// [FIREBASE] Este mapeamento sera usado pelos Cloud Schedulers para saber
+// quais verificacoes rodar em cada horario de encerramento
+export const NOTIF_POR_TEMA = {
+  compras: ['vidro_atraso', 'acess_atraso', 'perfil_atraso'],
+  vhsys_instalacao: ['vhsys_vazio', 'sem_agenda', 'conflito_agenda'],
+  producao: ['etapa_parada.fabricacao_contramarco', 'etapa_parada.montagem'],
+  auditoria: ['obra_parada', 'etapa_parada'],
+  materiais: [],
+};
+
+// [FIREBASE] Estas tres funcoes exportadas serao importadas pelos Cloud Functions
+// sem alteracao: a logica de negocio nao muda, so o ambiente de execucao
+export function janelaEncerrada(diaSemana, horaAtual) {
+  const janela = JANELAS_ANDRE[diaSemana];
+  if (!janela) return true;
+  return horaAtual >= janela.encerramento;
+}
+
+export function temaDodia(diaSemana) {
+  return JANELAS_ANDRE[diaSemana]?.tema || null;
+}
+
+export function tipoPerteneceTema(tipo, diaSemana) {
+  const tema = temaDodia(diaSemana);
+  if (!tema) return false;
+  const tiposDoTema = NOTIF_POR_TEMA[tema] || [];
+  return tiposDoTema.some((t) => tipo.startsWith(t));
+}
+
 export function verificarComunicacoesOperacionais(obras = [], atividades = [], gerarNotificacao) {
   if (!gerarNotificacao) return;
 
@@ -391,7 +436,21 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
   const ana = usuarioPorRole('comercial')?.nome || 'Ana';
   const matheus = usuarioPorRole('medicao')?.nome || 'Matheus';
 
-  function podeNotificar(tipo, obraId, diasDecorridos, intervaloEmDias) {
+  // [FIREBASE] Estas variaveis virao do contexto do Cloud Scheduler
+  // que chamara a funcao com a data/hora do servidor, nao do browser
+  const agora = new Date();
+  const diaSemana = agora.getDay();
+  const horaAtual = agora.getHours();
+  const janelaAndreEncerrada = janelaEncerrada(diaSemana, horaAtual);
+
+  function podeNotificar(tipo, obraId, diasDecorridos, intervaloEmDias, respeitaJanela = false) {
+    // [FIREBASE] Este bloco de janela sera desnecessario na versao Firebase
+    // porque a propria funcao so sera chamada apos o encerramento da janela
+    // Mantido aqui para a versao pre-Firebase funcionar corretamente no browser
+    if (respeitaJanela && !janelaAndreEncerrada && tipoPerteneceTema(tipo, diaSemana)) {
+      return false;
+    }
+
     const ciclo = Math.floor(Math.max(0, diasDecorridos) / intervaloEmDias);
     const chaveGerada = `maxibell.notif.${tipo}.${obraId}.${ciclo}`;
     const chaveResolvido = `maxibell.notif.${tipo}.${obraId}.resolvido`;
@@ -439,7 +498,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     }
 
     const diasCriacao = diasDesdeOperacional(obra.criadoEm);
-    if (obra.etapa === 'pedido_inicial' && !obra.vhsysEsquadria?.trim() && diasCriacao > 2 && podeNotificar('vhsys_vazio', obraId, diasCriacao, 3)) {
+    // [FIREBASE] Migra para Cloud Function agendada as 18h de quartas-feiras
+    if (obra.etapa === 'pedido_inicial' && !obra.vhsysEsquadria?.trim() && diasCriacao > 2 && podeNotificar('vhsys_vazio', obraId, diasCriacao, 3, true)) {
       notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: VHSYS não preenchido há ${diasCriacao} dias`, tipo: 'bloqueio', obraId });
       notificar({ para: alvaro, texto: `VHSYS pendente há ${diasCriacao} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'bloqueio', obraId });
     }
@@ -447,7 +507,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     if (obra.etapa === 'compras') {
       const vidro = obra.compras?.vidro;
       const diasVidro = diasDesdeOperacional(vidro?.dataPedido);
-      if (vidro?.dataPedido && diasVidro > 7 && vidro.status !== 'ok' && podeNotificar('vidro_atraso', obraId, diasVidro, 3)) {
+      // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
+      if (vidro?.dataPedido && diasVidro > 7 && vidro.status !== 'ok' && podeNotificar('vidro_atraso', obraId, diasVidro, 3, true)) {
         const texto = `${obra.pp}: vidro pedido há ${diasVidro} dias sem confirmação de entrega`;
         notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
         notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
@@ -455,7 +516,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
 
       const acessorios = obra.compras?.acessorios;
       const diasAcessorios = diasDesdeOperacional(acessorios?.dataPedido);
-      if (acessorios?.dataPedido && diasAcessorios > 10 && acessorios.status !== 'ok' && podeNotificar('acess_atraso', obraId, diasAcessorios, 3)) {
+      // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
+      if (acessorios?.dataPedido && diasAcessorios > 10 && acessorios.status !== 'ok' && podeNotificar('acess_atraso', obraId, diasAcessorios, 3, true)) {
         const texto = `${obra.pp}: acessórios pedidos há ${diasAcessorios} dias sem confirmação`;
         notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
         notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
@@ -463,14 +525,16 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
 
       const perfil = obra.compras?.perfil;
       const diasPerfil = diasDesdeOperacional(perfil?.dataPedido);
-      if (perfil?.dataPedido && diasPerfil > 10 && perfil.status !== 'ok' && podeNotificar('perfil_atraso', obraId, diasPerfil, 3)) {
+      // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
+      if (perfil?.dataPedido && diasPerfil > 10 && perfil.status !== 'ok' && podeNotificar('perfil_atraso', obraId, diasPerfil, 3, true)) {
         const texto = `${obra.pp}: perfil pedido há ${diasPerfil} dias sem confirmação`;
         notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
         notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
       }
 
       const diasAgenda = diasAteOperacional(obra.dataAgendada);
-      if (obra.dataAgendada && diasAgenda !== null && diasAgenda <= 7 && podeNotificar('conflito_agenda', obraId, Math.max(0, 7 - diasAgenda), 3)) {
+      // [FIREBASE] Migra para Cloud Function agendada as 18h de quartas-feiras
+      if (obra.dataAgendada && diasAgenda !== null && diasAgenda <= 7 && podeNotificar('conflito_agenda', obraId, Math.max(0, 7 - diasAgenda), 3, true)) {
         const texto = `CONFLITO: ${obra.pp} tem instalação em ${obra.dataAgendada} mas ainda está em Compras`;
         notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
         notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
@@ -479,7 +543,9 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
 
     const obraAtiva = !['finalizado', 'manutencao'].includes(obra.etapa);
     const prazoEtapa = PRAZOS_DIAS[obra.etapa];
-    if (obraAtiva && prazoEtapa && diasNaEtapa > prazoEtapa && podeNotificar(`etapa_parada.${obra.etapa}`, obraId, diasNaEtapa, 4)) {
+    // [FIREBASE] Migra para Cloud Function agendada as 18h de segundas-feiras
+    const isTemaProd = ['fabricacao_contramarco', 'montagem'].includes(obra.etapa);
+    if (obraAtiva && prazoEtapa && diasNaEtapa > prazoEtapa && podeNotificar(`etapa_parada.${obra.etapa}`, obraId, diasNaEtapa, 4, isTemaProd)) {
       const responsavel = responsavelDaEtapa(obra.etapa);
       notificar({
         para: responsavel,
@@ -495,7 +561,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       });
     }
 
-    if (['instalacao', 'entrega', 'entrega_cm'].includes(obra.etapa) && !obra.dataAgendada && diasNaEtapa > 2 && podeNotificar('sem_agenda', obraId, diasNaEtapa, 4)) {
+    // [FIREBASE] Migra para Cloud Function agendada as 18h de quartas-feiras
+    if (['instalacao', 'entrega', 'entrega_cm'].includes(obra.etapa) && !obra.dataAgendada && diasNaEtapa > 2 && podeNotificar('sem_agenda', obraId, diasNaEtapa, 4, true)) {
       notificar({
         para: andre,
         texto: `${obra.pp} — ${obra.cliente}: em ${labelEtapa(obra.etapa)} há ${diasNaEtapa} dias sem agendamento`,
@@ -590,7 +657,6 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     }
   });
 
-  const diaSemana = new Date().getDay();
   if (diaSemana >= 1 && diaSemana <= 5) {
     const temMontagemEmAndamento = obras.some((obra) => obra.etapa === 'montagem' && obra.montagemIniciada === true);
     if (!temMontagemEmAndamento && chaveUnica(`maxibell.notif.fabrica_parada.${hoje}`)) {
@@ -602,5 +668,98 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
   const temInstalacaoProxima = (atividades || []).some((atividade) => atividadeEInstalacao(atividade) && proximosTresDias.includes(atividade.data));
   if (!temInstalacaoProxima && chaveUnica(`maxibell.notif.sem_instalacao.${hoje}`)) {
     notificar({ para: alvaro, texto: 'Nenhuma instalação agendada para os próximos 3 dias.', tipo: 'aviso', obraId: null });
+  }
+
+  // Notificar Alvaro as 9h+ se alguem nao leu o briefing
+  const horaAgora = new Date().getHours();
+  if (horaAgora >= 9) {
+    const hojeAbertura = new Date().toDateString();
+    const membros = [
+      { nome: 'André', chave: `maxibell.abertura.Andre.${hojeAbertura}` },
+      { nome: 'Matheus', chave: `maxibell.abertura.Matheus.${hojeAbertura}` },
+      { nome: 'Ana', chave: `maxibell.abertura.Ana.${hojeAbertura}` },
+    ];
+    membros.forEach((m) => {
+      const leu = localStorage.getItem(m.chave) === 'true';
+      if (!leu) {
+        const chaveNotif = `maxibell.notif.briefing_nao_lido.${m.nome}.${hojeAbertura}`;
+        if (!localStorage.getItem(chaveNotif)) {
+          localStorage.setItem(chaveNotif, 'true');
+          gerarNotificacao({
+            para: alvaro,
+            texto: `${m.nome} ainda não abriu o sistema hoje (${new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}).`,
+            tipo: 'atencao',
+            cor: '#F59E0B',
+          });
+        }
+      }
+    });
+  }
+
+  // -----------------------------------------------------------------
+  // ANALISE POS-JANELA
+  // [FIREBASE] Este bloco migra para Cloud Function disparada no
+  // encerramento de cada janela. Ira gravar o insight no Firestore
+  // e sera lido pelo motor de insights na proxima abertura do sistema.
+  // Por ora, salva no localStorage para o motor de insights ler.
+  // -----------------------------------------------------------------
+  if (janelaAndreEncerrada && diaSemana >= 1 && diaSemana <= 5) {
+    const chaveInsight = `maxibell.insight.posJanela.${hoje}`;
+    if (!localStorage.getItem(chaveInsight)) {
+      const tema = temaDodia(diaSemana);
+
+      const insightTexto = (() => {
+        if (tema === 'compras') {
+          const pendentes = obras.filter((o) =>
+            o.etapa === 'compras' &&
+            ['vidro_atraso', 'acess_atraso', 'perfil_atraso'].some((t) =>
+              localStorage.getItem(`maxibell.notif.${t}.${o.id}.resolvido`) !== 'true'
+            )
+          ).length;
+          return pendentes > 0
+            ? `Janela de compras encerrada. ${pendentes} compra(s) ficaram com itens pendentes.`
+            : 'Janela de compras encerrada. Compras do dia resolvidas.';
+        }
+        if (tema === 'vhsys_instalacao') {
+          const semAgenda = obras.filter((o) =>
+            ['instalacao', 'entrega', 'entrega_cm'].includes(o.etapa) && !o.dataAgendada
+          ).length;
+          return semAgenda > 0
+            ? `Janela de VHSYS/instalação encerrada. ${semAgenda} obra(s) ainda sem agendamento.`
+            : 'Janela de VHSYS/instalação encerrada. Agendamentos em dia.';
+        }
+        if (tema === 'producao') {
+          const semInicio = obras.filter((o) =>
+            o.etapa === 'montagem' && !o.montagemIniciada
+          ).length;
+          return semInicio > 0
+            ? `Janela de produção encerrada. ${semInicio} montagem(ns) sem início registrado.`
+            : 'Janela de produção encerrada. Montagens em andamento.';
+        }
+        if (tema === 'auditoria') {
+          const emAtraso = obras.filter((o) =>
+            !['finalizado', 'manutencao'].includes(o.etapa) && o.prazo &&
+            new Date(o.prazo) < new Date()
+          ).length;
+          return emAtraso > 0
+            ? `Auditoria da semana: ${emAtraso} obra(s) em atraso ao fechar a sexta.`
+            : 'Auditoria da semana: nenhuma obra em atraso ao fechar a sexta.';
+        }
+        return `Janela operacional de ${JANELAS_ANDRE[diaSemana]?.label} encerrada.`;
+      })();
+
+      // Salvar insight pos-janela
+      // [FIREBASE] Substituir por: db.collection('insights').add({ ... })
+      const insights = JSON.parse(localStorage.getItem('maxibell.insights.posJanela') || '[]');
+      insights.unshift({
+        id: `pj-${Date.now()}`,
+        texto: insightTexto,
+        data: hoje,
+        tema,
+        tipo: 'pos_janela',
+      });
+      localStorage.setItem('maxibell.insights.posJanela', JSON.stringify(insights.slice(0, 7)));
+      localStorage.setItem(chaveInsight, 'true');
+    }
   }
 }
