@@ -47,7 +47,7 @@ function ObsInterna({ obra }) {
         onClick={() => { salvar(obs); setSalvo(true); setTimeout(() => setSalvo(false), 2000); }}
         disabled={!obs.trim()}
       >
-        {salvo ? 'âœ“ Salvo' : 'Salvar'}
+        {salvo ? '✓ Salvo' : 'Salvar'}
       </button>
     </div>
   );

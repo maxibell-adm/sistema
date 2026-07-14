@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { carregarUsuarios } from '@/config/usuarios.js';
+import { carregarUsuarios, usuarioPorRole } from '@/config/usuarios.js';
 import { ETAPAS, labelEtapa } from '@/config/etapas.js';
 import { useApp } from '@/modules/layout/AppContext.jsx';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
@@ -15,22 +15,24 @@ import Button from '@/modules/ui/Button.jsx';
 import CentralAguinaldo from '@/pages/CentralAguinaldo.jsx';
 
 const LEMBRETES_FIXOS_MATHEUS = [
-  { id: 'l1', titulo: 'Verificar medições pendentes', hora: '08:00', descricao: 'Conferir obras aguardando medição inicial e final' },
-  { id: 'l2', titulo: 'Atualizar status no sistema', hora: '17:00', descricao: 'Registrar andamentos do dia' },
-  { id: 'l3', titulo: 'Confirmar agendamentos da semana', hora: '09:00', descricao: 'Checar agenda de medições programadas' },
+  { id: 'm1', titulo: 'Clientes fechados — suporte', descricao: 'Verificar e responder dúvidas de clientes com obras em andamento' },
+  { id: 'm2', titulo: 'Triagem de orçamentos', descricao: 'Verificar orçamentos recebidos e separar por prioridade' },
+  { id: 'm3', titulo: 'Envio de orçamentos', descricao: 'Enviar orçamentos prontos para os clientes' },
+  { id: 'm4', titulo: 'Tarefas internas — conferência de grupo', descricao: 'Conferir grupo interno e responder pendências' },
 ];
 
 const COMPROMISSOS_FIXOS_ANA = [
+  { id: 'ana-kommo', emoji: '🔴', texto: 'Verificar mensagens e tarefas abertas no Kommo', link: 'https://maxibell.kommo.com', destaque: true },
   { id: 'ana-1', emoji: '📋', texto: 'Conferir conversas do dia anterior' },
   { id: 'ana-2', emoji: '✅', texto: 'Conferir tarefas vencidas no KOMMO' },
-  { id: 'ana-3', emoji: '🙬', texto: 'Responder mensagens pendentes' },
+  { id: 'ana-3', emoji: '💬', texto: 'Responder mensagens pendentes' },
 ];
 
 const TEMAS_SEMANA_ANA = {
-  2: { emoji: '📞', titulo: 'Terça — Follow-up Comercial', itens: ['Ligar para clientes de prioridade', 'Reativar clientes antigos ou leads inativos'] },
-  3: { emoji: '🔄', titulo: 'Quarta — Follow-up Pré-Atendimento', itens: ['Ligar para recuperar clientes do pré-atendimento', 'Marcar como contatado'] },
-  4: { emoji: '🔄', titulo: 'Quinta — Organização do Funil', itens: ['Atualizar etapas do CRM', 'Verificar clientes sem movimentação', 'Identificar clientes quentes e marcar como prioridade'] },
-  5: { emoji: '🤝', titulo: 'Sexta — Relacionamento e Expansão', itens: ['Solicitar avaliações Google / Feedback', 'Atualizar planilha de arquitetos', 'Atualizar planilha de construtores', 'Pesquisar novos arquitetos', 'Pesquisar novos construtores'] },
+  2: { emoji: '📞', titulo: 'Terça — Follow-up Comercial', objetivo: 'Manter contato com clientes de prioridade.', itens: ['Ligar para clientes de prioridade', 'Reativar clientes antigos ou leads inativos', 'Registrar resultado de cada contato no Kommo'] },
+  3: { emoji: '🔄', titulo: 'Quarta — Pré-Atendimento', objetivo: 'Recuperar clientes que ainda não fecharam.', itens: ['Ligar para recuperar clientes do pré-atendimento', 'Marcar como contatado no Kommo', 'Atualizar status dos leads'] },
+  4: { emoji: '📊', titulo: 'Quinta — Organização do Funil', objetivo: 'Funil atualizado e prioridades definidas.', itens: ['Atualizar etapas do CRM', 'Verificar clientes sem movimentação', 'Identificar clientes quentes e marcar como prioridade'] },
+  5: { emoji: '🤝', titulo: 'Sexta — Relacionamento e Expansão', objetivo: 'Ampliar rede e coletar feedback.', itens: ['Solicitar avaliações Google / Feedback de clientes', 'Atualizar planilha de arquitetos e construtores', 'Pesquisar novos parceiros comerciais'] },
 };
 
 const ROTINA_DIARIA_ANDRE = [
@@ -52,19 +54,19 @@ const TEMAS_SEMANA_ANDRE = {
     itens: ['Iniciar a produção da semana', 'Conferir materiais recebidos', 'Conferir pendências de fornecedores (perfis, vidros e acessórios)'],
   },
   2: {
-    emoji: 'âšâ„¢ï¸',
+    emoji: '⚙️',
     titulo: 'Terça — Produção e Liberação',
     objetivo: 'Garantir obras prontas para produção.',
-    itens: ['Conferir grupo "Obras a Produzir"', 'Conferir e liberar obras para produção', 'Liberar contramarcos', 'Separar perfis do estocão', 'Consolidar lista de compras da semana'],
+    itens: ['Conferir obras liberadas para compra pela Allana', 'Liberar contramarcos para fabricação', 'Separar perfis do estocão', 'Consolidar lista de compras da semana'],
   },
   3: {
-    emoji: '',
+    emoji: '💻',
     titulo: 'Quarta — Administração e VHSYS',
     objetivo: 'Nenhum pedido desatualizado.',
-    itens: ['Conferir grupo "Pedidos sem Medidas"', 'Lançar novos pedidos no VHSYS', 'Inserir novas obras na Central de Obras', 'Atualizar completamente a planilha da empresa', 'Conferir grupo de instalação e verificar pendências'],
+    itens: ['Lançar novos pedidos no VHSYS', 'Agendar obras prontas para instalação', 'Agendar contramarcos prontos para entrega', 'Agendar manutenções pendentes', 'Conferir grupo de instalação e verificar pendências'],
   },
   4: {
-    emoji: '🗓ï¸',
+    emoji: '🗓️',
     titulo: 'Quinta — Materiais e Programação',
     objetivo: 'Programar a próxima semana.',
     itens: ['Conferir materiais ainda não entregues', 'Conferir materiais críticos em estoque', 'Iniciar a programação da próxima semana (obras a produzir)', 'Iniciar a programação da próxima semana (obras a instalar)', 'Verificar tipologias em atraso', 'Verificar projetos em atraso'],
@@ -95,16 +97,27 @@ function Metric({ label, valor, sub, cor = '', onClick }) {
 
 function CompromissoCheck({ item, onToggle, sub = false }) {
   const [feito, setFeito] = useState(() => {
-    const salvo = localStorage.getItem(`maxibell.check.${item.id}.${new Date().toDateString()}`);
+    const salvo = localStorage.getItem(item.storageKey || `maxibell.check.${item.id}.${new Date().toDateString()}`);
     return salvo === 'true';
   });
 
   function toggle() {
     const novoValor = !feito;
     setFeito(novoValor);
-    localStorage.setItem(`maxibell.check.${item.id}.${new Date().toDateString()}`, String(novoValor));
+    localStorage.setItem(item.storageKey || `maxibell.check.${item.id}.${new Date().toDateString()}`, String(novoValor));
     onToggle?.(novoValor);
   }
+
+  const texto = (
+    <>
+      {item.link ? (
+        <a href={item.link} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} style={{ color: 'inherit', textDecoration: 'none' }}>
+          {item.texto}
+        </a>
+      ) : item.texto}
+      {item.descricao && <div className="fs-11 text-muted mt-4">{item.descricao}</div>}
+    </>
+  );
 
   return (
     <div
@@ -112,9 +125,10 @@ function CompromissoCheck({ item, onToggle, sub = false }) {
       onClick={toggle}
       role="checkbox"
       aria-checked={feito}
+      style={item.destaque ? { background: '#FFF0F0', borderLeft: '3px solid var(--vermelho)', fontSize: 14, fontWeight: 800 } : undefined}
     >
       <span className={`check-box ${feito ? 'checked' : ''}`}>{feito ? '✓' : ''}</span>
-      <span className="check-texto">{item.texto}</span>
+      <span className="check-texto">{texto}</span>
     </div>
   );
 }
@@ -431,10 +445,57 @@ function InsightCapacidade({ obras }) {
   );
 }
 
+function parseDataPainel(data) {
+  if (!data) return null;
+  if (data instanceof Date) return Number.isNaN(data.getTime()) ? null : data;
+  const valor = String(data).trim();
+  const dataBr = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dataBr) {
+    const [, dia, mes, ano] = dataBr;
+    const d = new Date(Number(ano), Number(mes) - 1, Number(dia));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(valor) ? new Date(`${valor}T00:00:00`) : new Date(valor);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function diasDesdePainel(data) {
+  const d = parseDataPainel(data);
+  if (!d) return 0;
+  d.setHours(0, 0, 0, 0);
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return Math.floor((hoje - d) / 86400000);
+}
+
+function tipoAgendaOperacional(tipo) {
+  return ['Instalação', 'Entrega', 'Montagem', 'Manutenção'].includes(tipo);
+}
+
+function compraAtrasada(compra, dias) {
+  return Boolean(compra?.dataPedido && compra.status !== 'ok' && diasDesdePainel(compra.dataPedido) > dias);
+}
+
+function compraComPedidoAberto(compra) {
+  return Boolean(compra?.dataPedido && compra.status !== 'ok');
+}
+
+function temCompraAtrasada(obra) {
+  return compraAtrasada(obra.compras?.vidro, 7)
+    || compraAtrasada(obra.compras?.acessorios, 10)
+    || compraAtrasada(obra.compras?.perfil, 10);
+}
+
+function temMaterialNaoEntregue(obra) {
+  return compraComPedidoAberto(obra.compras?.vidro)
+    || compraComPedidoAberto(obra.compras?.acessorios)
+    || compraComPedidoAberto(obra.compras?.perfil);
+}
+
 export default function Dashboard() {
   const { usuario } = useAuth();
   const { obrasVisiveis } = useObras();
-  const { atividades, notificacoes } = useApp();
+  const { atividades, notificacoes, gerarNotificacao } = useApp();
   const navigate = useNavigate();
   const [filtroAndre, setFiltroAndre] = useState('Todos');
   const [telaAlvaro, setTelaAlvaro] = useState(1);
@@ -442,6 +503,23 @@ export default function Dashboard() {
   const [telaAna, setTelaAna] = useState(1);
   const [mostrarUrgencias, setMostrarUrgencias] = useState(false);
   const [filtroAllana, setFiltroAllana] = useState('ativos');
+  const hojeLocal = new Date().toDateString();
+  const [refreshAna, setRefreshAna] = useState(0);
+  const [followupsAnaAberto, setFollowupsAnaAberto] = useState(false);
+  const [sugestoesManutAna, setSugestoesManutAna] = useState({});
+  const [matheusAmanhaOk, setMatheusAmanhaOk] = useState(
+    localStorage.getItem(`maxibell.matheus.amanha.${hojeLocal}`) === 'true'
+  );
+  const hojeAndre = new Date().toDateString();
+  const [fluxoEntrada, setFluxoEntrada] = useState(() => {
+    const feito = localStorage.getItem(`maxibell.andre.fluxo.${hojeAndre}`);
+    const hora = new Date().getHours();
+    if (feito === 'true' || hora >= 9) return 'painel';
+    return 'tela1';
+  });
+  const [amanhaConfirmado, setAmanhaConfirmado] = useState(
+    localStorage.getItem(`maxibell.andre.amanha.${hojeAndre}`) === 'true'
+  );
   const [lembretes] = useState(() => {
     return lerArrayLocalStorage('maxibell.lembretes.matheus', LEMBRETES_FIXOS_MATHEUS);
   });
@@ -484,6 +562,34 @@ export default function Dashboard() {
     const TIPOS_URGENTES = ['Instalação', 'Montagem', 'Manutenção', 'Entrega', 'Reunião Comercial'];
     const urgenciasAmanha = atividadesPerfil.filter((a) => a.data === amanhaIso && TIPOS_URGENTES.includes(a.tipo));
     const temUrgencias = urgenciasAmanha.length > 0;
+    const manutAguardando = lerArrayLocalStorage('maxibell.manutencao.aguardando_ana')
+      .filter((m) => m.status === 'aguardando');
+    const followupsPendentes = (() => {
+      const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
+      return lembretesApp.filter((l) => l.titulo?.includes('Follow-up') && !l.concluido && l.responsavel === usuario.nome);
+    })();
+
+    function atualizarManutAna(itemId, patch, textoNotificacao) {
+      const atual = lerArrayLocalStorage('maxibell.manutencao.aguardando_ana');
+      const atualizado = atual.map((item) => item.id === itemId ? { ...item, ...patch } : item);
+      localStorage.setItem('maxibell.manutencao.aguardando_ana', JSON.stringify(atualizado));
+      gerarNotificacao?.({
+        para: usuarioPorRole('operacional')?.nome || 'André',
+        texto: textoNotificacao,
+        tipo: 'info',
+        cor: '#27AE60',
+      });
+      setRefreshAna((valor) => valor + 1);
+    }
+
+    function concluirFollowup(lembreteId) {
+      const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
+      localStorage.setItem('maxibell.lembretes.app', JSON.stringify(
+        lembretesApp.map((lembrete) => lembrete.id === lembreteId ? { ...lembrete, concluido: true } : lembrete)
+      ));
+      setRefreshAna((valor) => valor + 1);
+    }
+
     return (
       <>
         <LembretesRecebidos usuario={usuario} />
@@ -539,6 +645,7 @@ export default function Dashboard() {
               {temaHoje && (
                 <div className="tema-semana-card mt-16">
                   <div className="tema-semana-titulo">{temaHoje.emoji} {temaHoje.titulo}</div>
+                  {temaHoje.objetivo && <div className="text-muted fs-11 mb-10">{temaHoje.objetivo}</div>}
                   {temaHoje.itens.map((item, i) => (
                     <CompromissoCheck
                       key={i}
@@ -549,26 +656,74 @@ export default function Dashboard() {
                   ))}
                 </div>
               )}
-              {(() => {
-                return null;
-                const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
-                const paraAna = lembretesApp.filter((lembrete) => lembrete.responsavel === usuario.nome && !lembrete.concluido);
-                return paraAna.length > 0 ? (
-                  <div className="mt-16">
-                    <div className="section-titulo mb-8">📩 Lembretes recebidos</div>
-                    {paraAna.map((lembrete) => (
-                      <div key={lembrete.id} className="compromisso-item" style={{ borderLeft: '3px solid var(--azul-claro)' }}>
-                        <span>📌</span>
+              {manutAguardando.length > 0 && (
+                <div className="mt-16">
+                  <div className="section-titulo mb-8">🔧 Manutenções aguardando confirmação do cliente</div>
+                  {manutAguardando.map((item) => {
+                    const sugestao = sugestoesManutAna[item.id] || {};
+                    return (
+                      <div key={item.id} className="compromisso-item" style={{ alignItems: 'stretch', flexDirection: 'column', gap: 8 }}>
                         <div>
-                          <div className="fw-700 fs-12">{lembrete.titulo}</div>
-                          {lembrete.descricao && <div className="fs-11 text-muted">{lembrete.descricao}</div>}
-                          <div className="fs-10 text-muted">De: {lembrete.criadoPor}</div>
+                          <div className="fw-700 fs-13">{item.pp} — {item.cliente}</div>
+                          <div className="fs-11 text-muted">Data sugerida: {item.dataSugerida}{item.hora ? ` às ${item.hora}` : ''}</div>
+                          {item.motivo && <div className="fs-11 text-muted">{item.motivo}</div>}
                         </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                          <button
+                            className="btn btn-primary btn-sm"
+                            onClick={() => atualizarManutAna(
+                              item.id,
+                              { status: 'confirmado' },
+                              `Ana confirmou: cliente de ${item.pp} autorizou manutenção em ${item.dataSugerida}.`
+                            )}
+                          >
+                            ✓ Cliente autorizou
+                          </button>
+                          <button
+                            className="btn btn-secondary btn-sm"
+                            onClick={() => setSugestoesManutAna((atual) => ({ ...atual, [item.id]: { ...sugestao, aberto: !sugestao.aberto } }))}
+                          >
+                            📅 Sugere outra data
+                          </button>
+                        </div>
+                        {sugestao.aberto && (
+                          <div style={{ display: 'grid', gap: 8 }}>
+                            <input type="date" value={sugestao.novaData || ''} onChange={(e) => setSugestoesManutAna((atual) => ({ ...atual, [item.id]: { ...sugestao, novaData: e.target.value } }))} />
+                            <input placeholder="Observação" value={sugestao.obs || ''} onChange={(e) => setSugestoesManutAna((atual) => ({ ...atual, [item.id]: { ...sugestao, obs: e.target.value } }))} />
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={!sugestao.novaData}
+                              onClick={() => atualizarManutAna(
+                                item.id,
+                                { status: 'nova_data', novaData: sugestao.novaData, observacao: sugestao.obs || '' },
+                                `Cliente de ${item.pp} sugeriu nova data para manutenção: ${sugestao.novaData}. Observação: ${sugestao.obs || ''}.`
+                              )}
+                            >
+                              Enviar para André
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              )}
+              {followupsPendentes.length > 0 && (
+                <div className="mt-16">
+                  <div className="compromisso-item" style={{ justifyContent: 'space-between' }}>
+                    <div className="fw-700 fs-13">📞 {followupsPendentes.length} obra(s) aguardando follow-up</div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setFollowupsAnaAberto((valor) => !valor)}>Ver</button>
                   </div>
-                ) : null;
-              })()}
+                  {followupsAnaAberto && followupsPendentes.map((lembrete) => (
+                    <div key={lembrete.id} className="compromisso-item">
+                      <div style={{ flex: 1 }}>
+                        <div className="fw-700 fs-12">{lembrete.titulo}</div>
+                      </div>
+                      <button className="btn btn-primary btn-sm" onClick={() => concluirFollowup(lembrete.id)}>✓ Follow-up feito</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="ana-col-direita">
@@ -589,8 +744,11 @@ export default function Dashboard() {
   }
 
   if (role === 'operacional') {
+    const horaAtual = new Date().getHours();
+    const saudacao = horaAtual < 12 ? 'Bom dia' : horaAtual < 18 ? 'Boa tarde' : 'Boa noite';
     const temaAndre = TEMAS_SEMANA_ANDRE[new Date().getDay()];
-    const agendaAndre = atividadesPerfil.filter((a) => a.data === hojeIso);
+    const agendaAndre = atividadesPerfil.filter((a) => a.data === hojeIso && tipoAgendaOperacional(a.tipo));
+    const agendaAndreAmanha = atividadesPerfil.filter((a) => a.data === amanhaIso && tipoAgendaOperacional(a.tipo));
     const obrasComPendencia = obrasVisiveis.filter((o) =>
       o.responsavel === 'André' && (
         (o.etapa === 'pedido_inicial' && !o.vhsysEsquadria?.trim()) ||
@@ -605,17 +763,82 @@ export default function Dashboard() {
         .map((o) => ({
           obra: o,
           texto: o.ehCardOC
-            ? `Card OC - ${o.ocorrenciaTipo || 'ocorrÁªncia'} de ${o.obraMaePP}`
+            ? `Card OC - ${o.ocorrenciaTipo || 'ocorrência'} de ${o.obraMaePP}`
             : 'VHSYS não preenchido - cadastrar pedido',
         })),
     ];
+    const diaSemana = new Date().getDay();
+    const obrasCompras = obrasVisiveis.filter((o) => o.etapa === 'compras');
+    const obrasInstalacao = obrasVisiveis.filter((o) => o.etapa === 'instalacao' && !o.dataAgendada);
+    const obrasEntregaCM = obrasVisiveis.filter((o) => o.etapa === 'entrega_cm' && !o.dataAgendada);
+    const obrasMontagem = obrasVisiveis.filter((o) => o.etapa === 'montagem' && !o.montagemIniciada);
+    const obrasManutencao = obrasVisiveis.filter((o) => o.etapa === 'manutencao');
+    const obrasVHSYS = obrasVisiveis.filter((o) => o.etapa === 'pedido_inicial' && !o.vhsysEsquadria?.trim());
+    const obrasAtraso = obrasVisiveis.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido' && !['finalizado', 'manutencao'].includes(o.etapa));
+    const obrasFabricacaoCM = obrasVisiveis.filter((o) => o.etapa === 'fabricacao_contramarco');
+    const obrasComprasNovas = obrasCompras.filter((o) => diasDesdePainel(o.atualizadoEm) <= 3);
+    const obrasComprasAtrasadas = obrasCompras.filter(temCompraAtrasada);
+    const obrasMateriaisPendentes = obrasCompras.filter(temMaterialNaoEntregue);
+    const alertasAndre = [];
 
-    return (
-      <>
-        <LembretesRecebidos usuario={usuario} />
-        <div className="andre-painel-grid mt-16">
-          <div className="andre-col">
-            <div className="section-titulo mb-12">Agenda de Hoje</div>
+    function addAlerta(qtd, descricao, filtro) {
+      if (qtd > 0) alertasAndre.push({ qtd, descricao, filtro });
+    }
+
+    if (diaSemana === 1) {
+      addAlerta(obrasFabricacaoCM.length, 'contramarco(s) em fabricação', 'fabricacao_contramarco');
+      addAlerta(obrasMontagem.length, 'obra(s) em montagem sem início registrado', 'montagem_sem_inicio');
+    }
+    if (diaSemana === 2) {
+      addAlerta(obrasComprasNovas.length, 'obra(s) novas em Compras nos últimos 3 dias', 'compras_novas');
+      addAlerta(obrasComprasAtrasadas.length, 'obra(s) em Compras com itens atrasados', 'compras_atrasadas');
+    }
+    if (diaSemana === 3) {
+      addAlerta(obrasInstalacao.length, 'instalação(ões) sem agendamento', 'instalacao_sem_agenda');
+      addAlerta(obrasEntregaCM.length, 'contramarco(s) prontos para entrega sem agendamento', 'entrega_cm_sem_agenda');
+      addAlerta(obrasManutencao.length, 'manutenção(ões) pendentes', 'manutencao');
+    }
+    if (diaSemana === 4) {
+      addAlerta(obrasMateriaisPendentes.length, 'obra(s) com materiais pedidos ainda não entregues', 'materiais_pendentes');
+    }
+    if (diaSemana === 5) {
+      addAlerta(obrasVHSYS.length, 'VHSYS pendente(s)', 'vhsys_pendente');
+      addAlerta(obrasAtraso.filter((o) => o.etapa === 'instalacao').length, 'instalação(ões) em atraso', 'instalacao_atraso');
+      addAlerta(obrasAtraso.filter((o) => o.etapa === 'compras').length, 'compra(s) em atraso', 'compras_atraso');
+      addAlerta(obrasAtraso.filter((o) => ['entrega', 'entrega_cm'].includes(o.etapa)).length, 'entrega(s) em atraso', 'entregas_atraso');
+    }
+
+    function confirmarAgendaAmanha() {
+      localStorage.setItem(`maxibell.andre.amanha.${hojeAndre}`, 'true');
+      localStorage.setItem(`maxibell.andre.fluxo.${hojeAndre}`, 'true');
+      setAmanhaConfirmado(true);
+      setFluxoEntrada('painel');
+    }
+
+    function registrarPendenciaAmanha() {
+      const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
+      lembretesApp.unshift({
+        id: `andre-amanha-${Date.now()}`,
+        titulo: 'Pendências para amanhã — programação',
+        descricao: 'André sinalizou pendências na programação de amanhã.',
+        responsavel: usuario.nome,
+        tag: 'urgente',
+        criadoEm: new Date().toLocaleDateString('pt-BR'),
+        criadoPor: usuario.nome,
+        concluido: false,
+      });
+      localStorage.setItem('maxibell.lembretes.app', JSON.stringify(lembretesApp));
+      localStorage.setItem(`maxibell.andre.fluxo.${hojeAndre}`, 'true');
+      setFluxoEntrada('painel');
+    }
+
+    if (fluxoEntrada === 'tela1') {
+      return (
+        <>
+          <LembretesRecebidos usuario={usuario} />
+          <section className="card card-pad">
+            <div className="page-title mb-4">{saudacao}, André.</div>
+            <div className="text-muted fs-12 mb-16">Confira o que está programado para hoje antes de começar.</div>
             {agendaAndre.length ? agendaAndre.map((a, i) => (
               <button key={a.id || i} className="agenda-hoje-card" onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
                 <span className="ativ-tipo-mini">{a.tipo}</span>
@@ -623,18 +846,72 @@ export default function Dashboard() {
                 <span className="ativ-cidade-mini">{a.cidade}</span>
               </button>
             )) : (
-              <div className="empty-state">Nada agendado para hoje.</div>
+              <div className="empty-state">Nenhuma atividade programada para hoje.</div>
             )}
-          </div>
+            <button className="btn btn-primary mt-16" style={{ width: '100%', justifyContent: 'center' }} onClick={() => setFluxoEntrada('tela2')}>
+              ✅ Estou ciente — Ver agenda de amanhã
+            </button>
+          </section>
+        </>
+      );
+    }
 
+    if (fluxoEntrada === 'tela2') {
+      return (
+        <>
+          <LembretesRecebidos usuario={usuario} />
+          <section className="card card-pad">
+            <div className="page-title mb-4">Agenda de Amanhã</div>
+            <div className="text-muted fs-12 mb-16">Tudo certo para amanhã?</div>
+            {agendaAndreAmanha.length ? agendaAndreAmanha.map((a, i) => (
+              <button key={a.id || i} className="agenda-hoje-card" onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
+                <span className="ativ-tipo-mini">{a.tipo}</span>
+                <span className="ativ-pp-mini">{a.pp} - {a.cliente}</span>
+                <span className="ativ-cidade-mini">{a.cidade}</span>
+              </button>
+            )) : (
+              <div className="empty-state">Nenhuma atividade programada para amanhã.</div>
+            )}
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, flexWrap: 'wrap' }}>
+              <button className="btn btn-primary" onClick={confirmarAgendaAmanha}>✅ Sim, estou pronto</button>
+              <button className="btn btn-secondary" onClick={registrarPendenciaAmanha}>⚠️ Não, há pendências</button>
+            </div>
+          </section>
+        </>
+      );
+    }
+
+    return (
+      <>
+        <LembretesRecebidos usuario={usuario} />
+        {new Date().getHours() >= 14 && !amanhaConfirmado && (
+          <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: '#92400E' }}>⚠️ A agenda de amanhã ainda não foi confirmada.</span>
+            <button className="btn btn-secondary btn-sm" onClick={() => setFluxoEntrada('tela2')}>Confirmar agora</button>
+          </div>
+        )}
+        <div className="andre-painel-grid mt-16">
           <div className="andre-col">
             <div className="section-titulo mb-12">Rotina Diária</div>
             {ROTINA_DIARIA_ANDRE.map((item) => (
               <CompromissoCheckAndre key={item.id} item={item} />
             ))}
 
+            <div className="section-titulo mt-16 mb-12">Agenda de Hoje</div>
+            {agendaAndre.length ? agendaAndre.map((a, i) => (
+              <button key={a.id || i} className="agenda-hoje-card" onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
+                <span className="ativ-tipo-mini">{a.tipo}</span>
+                <span className="ativ-pp-mini">{a.pp} - {a.cliente}</span>
+                <span className="ativ-cidade-mini">{a.cidade}</span>
+              </button>
+            )) : (
+              <div className="empty-state">Nenhuma atividade programada para hoje.</div>
+            )}
+          </div>
+
+          <div className="andre-col">
             {temaAndre ? (
-              <div className="mt-16">
+              <div>
                 <div className="section-titulo mb-8">{temaAndre.emoji} {temaAndre.titulo}</div>
                 <div className="text-muted fs-11 mb-10">{temaAndre.objetivo}</div>
                 {temaAndre.itens.map((item, i) => (
@@ -642,7 +919,18 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : (
-              <div className="empty-state mt-16">Sem tema para hoje.</div>
+              <div className="empty-state">Sem tema para hoje.</div>
+            )}
+
+            <div className="section-titulo mt-16 mb-12">Alertas da OS para hoje</div>
+            {alertasAndre.length ? alertasAndre.map((alerta) => (
+              <div key={alerta.filtro} className="agenda-hoje-card" style={{ alignItems: 'center' }}>
+                <span className="badge badge-info">{alerta.qtd}</span>
+                <span className="ativ-pp-mini" style={{ flex: 1 }}>{alerta.descricao}</span>
+                <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/obras?filtro=${encodeURIComponent(alerta.filtro)}`)}>Ver</button>
+              </div>
+            )) : (
+              <div className="empty-state">✅ Nenhum alerta operacional para hoje.</div>
             )}
           </div>
 
@@ -688,9 +976,9 @@ export default function Dashboard() {
       { emoji: '📱', texto: 'Conteúdo do Dia - Marketing' },
       ...({
         1: [
-          { emoji: '🗓ï¸', texto: 'Alinhamento semanal - Matheus' },
-          { emoji: '🗓ï¸', texto: 'Alinhamento semanal - Ana' },
-          { emoji: '🏭', texto: 'Programação da semana - Fábrica' },
+          { emoji: '🗓️', texto: 'Alinhamento semanal - Matheus' },
+          { emoji: '🗓️', texto: 'Alinhamento semanal - Ana' },
+          { emoji: '🏗️', texto: 'Programação da semana - Fábrica' },
         ],
         2: [
           { emoji: '📞', texto: 'Clientes prioritários - Follow up!' },
@@ -707,6 +995,78 @@ export default function Dashboard() {
       : agendaPainel === 'amanha'
       ? atividadesPerfil.filter((atividade) => atividade.data === amanhaIso)
       : [];
+    const obrasAtivas = obrasVisiveis.filter((o) => !['finalizado', 'manutencao'].includes(o.etapa) && !o.arquivado);
+    const obrasAtrasadas = obrasAtivas.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido');
+    const obrasEmCompras = obrasAtivas.filter((o) => o.etapa === 'compras');
+    const obrasEmMontagem = obrasAtivas.filter((o) => o.etapa === 'montagem');
+    const obrasEmInstalacao = obrasAtivas.filter((o) => o.etapa === 'instalacao');
+    const obrasEmProjeto = obrasAtivas.filter((o) => ['projeto_contramarco', 'projeto_final'].includes(o.etapa));
+    const obrasSemVhsys = obrasVisiveis.filter((o) => o.etapa === 'pedido_inicial' && !o.vhsysEsquadria?.trim());
+    const pendenciasParaAlvaro = obrasVisiveis.filter((o) => o.pendencia?.aberta && o.pendencia?.responsavel === 'Álvaro');
+    const obrasComConflito = obrasAtivas.filter((o) => o.etapa === 'compras' && o.dataAgendada);
+    const totalAlertas = obrasAtrasadas.length + pendenciasParaAlvaro.length + obrasComConflito.length;
+    const fraseContextual = totalAlertas
+      ? `Hoje existem ${totalAlertas} pontos que merecem sua atenção antes de virarem atraso.`
+      : 'A operação está sem alertas críticos neste momento.';
+    const saudeOperacao = Math.max(0, Math.round(100 - (totalAlertas * 8) - (obrasSemVhsys.length * 4)));
+    const saudeProducao = Math.max(0, Math.round(100 - (obrasEmMontagem.length * 3) - (obrasEmInstalacao.length * 2)));
+    const saudeCompras = Math.max(0, Math.round(100 - (obrasEmCompras.length * 5) - (obrasComConflito.length * 10)));
+    const gargaloCompras = obrasEmCompras.length;
+    const gargaloProducao = obrasEmMontagem.length;
+    const gargaloProjeto = obrasEmProjeto.length;
+    const gargaloInstalacao = obrasEmInstalacao.length;
+    const corGargalo = (n) => {
+      if (n === 0) return '🟢';
+      if (n <= 2) return '🟡';
+      return '🔴';
+    };
+    const aberturaHoje = new Date().toDateString();
+    const registrosAbertura = [
+      { nome: 'André', chave: `maxibell.andre.fluxo.${aberturaHoje}` },
+      { nome: 'Matheus', chave: `maxibell.matheus.amanha.${aberturaHoje}` },
+    ].map((m) => ({ nome: m.nome, leu: localStorage.getItem(m.chave) === 'true' }));
+    const alertasRadar = [
+      {
+        ativo: obrasAtrasadas.length > 0,
+        texto: `${obrasAtrasadas.length} obra${obrasAtrasadas.length === 1 ? '' : 's'} atrasada${obrasAtrasadas.length === 1 ? '' : 's'}`,
+        detalhe: 'Ver obras vencidas',
+        onClick: () => navigate('/obras', { state: { filtroPrazo: 'vencido' } }),
+      },
+      {
+        ativo: pendenciasParaAlvaro.length > 0,
+        texto: `${pendenciasParaAlvaro.length} pendência${pendenciasParaAlvaro.length === 1 ? '' : 's'} com Álvaro`,
+        detalhe: 'Decisões aguardando resposta',
+        onClick: () => navigate('/obras', { state: { filtroResponsavel: 'Álvaro' } }),
+      },
+      {
+        ativo: obrasComConflito.length > 0,
+        texto: `${obrasComConflito.length} conflito${obrasComConflito.length === 1 ? '' : 's'} de agenda em compras`,
+        detalhe: 'Compras com data já agendada',
+        onClick: () => navigate('/obras', { state: { filtroEtapa: 'compras' } }),
+      },
+      {
+        ativo: obrasSemVhsys.length > 0,
+        texto: `${obrasSemVhsys.length} pedido${obrasSemVhsys.length === 1 ? '' : 's'} sem VHSYS`,
+        detalhe: 'Completar cadastro inicial',
+        onClick: () => navigate('/obras', { state: { filtroEtapa: 'pedido_inicial' } }),
+      },
+    ].filter((alerta) => alerta.ativo);
+    const areasRadar = [
+      { nome: 'Produção', total: obrasEmMontagem.length, filtro: 'montagem' },
+      { nome: 'Compras', total: obrasEmCompras.length, filtro: 'compras' },
+      { nome: 'Instalação', total: obrasEmInstalacao.length, filtro: 'instalacao' },
+      { nome: 'VHSYS', total: obrasSemVhsys.length, filtro: 'pedido_inicial' },
+    ];
+    const statusArea = (total) => {
+      if (total === 0) return '✅';
+      if (total <= 2) return '⚠️';
+      return '🔴';
+    };
+    const corSaude = (valor) => {
+      if (valor >= 80) return 'var(--verde)';
+      if (valor >= 60) return 'var(--laranja)';
+      return 'var(--vermelho)';
+    };
 
     return (
       <>
@@ -746,6 +1106,83 @@ export default function Dashboard() {
         </div>
         {telaAlvaro === 1 && (
           <>
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-8">Radar da Empresa</div>
+              <div className="text-muted fs-12" style={{ fontStyle: 'italic' }}>{fraseContextual}</div>
+            </section>
+
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">🚨 O que precisa da sua atenção</div>
+              {alertasRadar.length ? (
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {alertasRadar.map((alerta) => (
+                    <button key={alerta.texto} className="btn-alerta-radar" onClick={alerta.onClick}>
+                      <span>
+                        <b>{alerta.texto}</b>
+                        <small>{alerta.detalhe}</small>
+                      </span>
+                      <span>Ver</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="empty-state">Nenhum alerta crítico no momento.</div>
+              )}
+            </section>
+
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">🕵️ Passou batido</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
+                {areasRadar.map((item) => (
+                  <button
+                    key={item.nome}
+                    className="btn-radar-area"
+                    onClick={() => navigate('/obras', { state: { filtroEtapa: item.filtro } })}
+                  >
+                    <span>{statusArea(item.total)}</span>
+                    <b>{item.nome}</b>
+                    <small>{item.total} em atenção</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">⚡ Gargalos</div>
+              <div className="stats-grid">
+                <div className="stat-card"><span>Compras</span><b>{corGargalo(gargaloCompras)} {gargaloCompras}</b></div>
+                <div className="stat-card"><span>Projetos</span><b>{corGargalo(gargaloProjeto)} {gargaloProjeto}</b></div>
+                <div className="stat-card"><span>Produção</span><b>{corGargalo(gargaloProducao)} {gargaloProducao}</b></div>
+                <div className="stat-card"><span>Instalação</span><b>{corGargalo(gargaloInstalacao)} {gargaloInstalacao}</b></div>
+              </div>
+            </section>
+
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">💚 Saúde da empresa</div>
+              <div className="stats-grid">
+                <div className="stat-card"><span>Operação</span><b style={{ color: corSaude(saudeOperacao) }}>{saudeOperacao}%</b></div>
+                <div className="stat-card"><span>Produção</span><b style={{ color: corSaude(saudeProducao) }}>{saudeProducao}%</b></div>
+                <div className="stat-card"><span>Compras</span><b style={{ color: corSaude(saudeCompras) }}>{saudeCompras}%</b></div>
+              </div>
+            </section>
+
+            {pendenciasParaAlvaro.length > 0 && (
+              <section className="card card-pad mb-16">
+                <div className="section-titulo mb-12">⏳ Aguardando sua decisão</div>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {pendenciasParaAlvaro.map((obra) => (
+                    <button key={obra.id} className="btn-alerta-radar" onClick={() => navigate(`/obras/${obra.id}`)}>
+                      <span>
+                        <b>{obra.pp} — {obra.cliente}</b>
+                        <small>{obra.pendencia?.texto || 'Pendência aberta para Álvaro'}</small>
+                      </span>
+                      <span>Abrir</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
             <section className="card card-pad mb-16">
               <div className="section-titulo mb-12">📌 Lembretes e alertas de hoje</div>
               {lembretesHoje.map((lembrete, i) => (
@@ -812,6 +1249,17 @@ export default function Dashboard() {
             <div className="page-title mb-4">📣 Notificar equipe</div>
             <div className="text-muted fs-12 mb-16">Obras que precisam de um toque para avançar.</div>
             <PendenciasPorFuncionario obras={obrasVisiveis} usuario={usuario} />
+            <section className="card card-pad mt-16">
+              <div className="section-titulo mb-12">Aberturas Operacionais de Hoje</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                {registrosAbertura.map((registro) => (
+                  <div key={registro.nome} className="compromisso-row">
+                    <span>{registro.nome}</span>
+                    <b>{registro.leu ? '✅ Ciente' : '⚠️ Ainda não confirmou'}</b>
+                  </div>
+                ))}
+              </div>
+            </section>
           </section>
         )}
         {telaAlvaro === 'particular' && (
@@ -826,6 +1274,22 @@ export default function Dashboard() {
 
   if (role === 'projetos') {
     const notifNaoLidas = (notificacoes || []).filter((n) => !n.lida).length;
+    const projetosUnicos = [...new Map([...projetosBase, ...projetosVencidos].map((obra) => [obra.id, obra])).values()];
+    const ordenarProjetos = (lista) => [...lista].sort((a, b) => {
+      const pa = calcPrazo(a.prazo);
+      const pb = calcPrazo(b.prazo);
+      if (pa.classe === 'badge-vencido' && pb.classe !== 'badge-vencido') return -1;
+      if (pb.classe === 'badge-vencido' && pa.classe !== 'badge-vencido') return 1;
+      const dataA = a.prazo ? new Date(`${a.prazo}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+      const dataB = b.prazo ? new Date(`${b.prazo}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
+      return dataA - dataB;
+    });
+    const listaProjetosAllana = filtroAllana === 'finalizados'
+      ? projetosFinalizados
+      : filtroAllana === 'ativos'
+      ? ordenarProjetos(projetosBase)
+      : ordenarProjetos(projetosUnicos);
+
     return (
       <>
         <div className="card card-pad mb-16">
@@ -849,63 +1313,159 @@ export default function Dashboard() {
           )}
         </div>
         <LembretesRecebidos usuario={usuario} />
-        <div className="metricas-grid" style={{ gridTemplateColumns: 'repeat(3,1fr)' }}>
-          <Metric label="Projetos ativos" valor={projetosBase.length} sub="em andamento" onClick={() => setFiltroAllana('ativos')} />
-          <Metric label="Vencidos" valor={projetosVencidos.length} sub="prazo ultrapassado" cor="vermelho" onClick={() => setFiltroAllana('vencidos')} />
-          <Metric label="Finalizados" valor={projetosFinalizados.length} sub="total" cor="cinza" onClick={() => setFiltroAllana('finalizados')} />
+        <div className="section-hdr">
+          <div>
+            <div className="section-titulo">Fila de projetos</div>
+            <div className="text-muted fs-12">{projetosVencidos.length} vencidos · {projetosBase.length} em andamento</div>
+          </div>
         </div>
-        <div className="section-hdr"><div className="section-titulo">Projetos em andamento</div></div>
-        <div className="obras-grid">{projetosFiltrados.map((o) => <ObraCard obra={o} key={o.id} />)}</div>
+        <div className="filtro-pills mb-12">
+          <button className={`filtro-pill ${filtroAllana === 'todos' ? 'ativo' : ''}`} onClick={() => setFiltroAllana('todos')}>Todos</button>
+          <button className={`filtro-pill ${filtroAllana === 'ativos' ? 'ativo' : ''}`} onClick={() => setFiltroAllana('ativos')}>Em andamento</button>
+          <button className={`filtro-pill ${filtroAllana === 'finalizados' ? 'ativo' : ''}`} onClick={() => setFiltroAllana('finalizados')}>Finalizados</button>
+        </div>
+        <div style={{ display: 'grid', gap: 10 }}>
+          {listaProjetosAllana.map((obra) => {
+            const prazoInfo = calcPrazo(obra.prazo);
+            return (
+              <button
+                key={obra.id}
+                className="aviso-obra-card"
+                onClick={() => navigate(`/obras/${obra.id}`)}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr auto',
+                  gap: 8,
+                  alignItems: 'start',
+                  padding: '14px 16px',
+                  border: '1px solid var(--cinza-borda)',
+                  borderRadius: 8,
+                  background: 'var(--branco)',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                <div>
+                  <div className="fw-700 fs-13">{obra.pp}</div>
+                  <div className="fs-12">{obra.cliente}</div>
+                  <div className="fs-11 text-muted">{labelEtapa(obra.etapa)}</div>
+                  <div className="fs-11 text-muted">{obra.cidade}</div>
+                  {obra.condicaoEspecial?.ativa && <span className="badge badge-alerta mt-8">⚠ Condição especial</span>}
+                </div>
+                <span className={`badge ${prazoInfo.classe}`}>{prazoInfo.label}</span>
+              </button>
+            );
+          })}
+          {!listaProjetosAllana.length && <div className="empty-state">Nenhum projeto nesta fila.</div>}
+        </div>
       </>
     );
   }
 
   if (role === 'medicao') {
-    const compromissosExternos = agendaHoje.filter((a) => ['Medição Inicial', 'Medição Final', 'Reunião Comercial'].includes(a.tipo));
+    const TIPOS_EXTERNOS_MATHEUS = ['Medição Inicial', 'Medição Final', 'Reunião Comercial'];
+    const notifMatheus = (notificacoes || []).filter((n) => !n.lida && (n.tipo === 'urgente' || n.tipo === 'bloqueio'));
+    const manutTriagem = obrasVisiveis.filter((o) => o.etapa === 'manutencao' && !o.manutencaoTriada);
+    const medicaoAberta = obrasVisiveis
+      .filter((o) => o.etapa === 'medicao_inicial' && o.responsavel === usuario.nome)
+      .sort((a, b) => {
+        const pa = calcPrazo(a.prazo);
+        const pb = calcPrazo(b.prazo);
+        if (pa.classe === 'badge-vencido' && pb.classe !== 'badge-vencido') return -1;
+        if (pb.classe === 'badge-vencido' && pa.classe !== 'badge-vencido') return 1;
+        return (pa.dias ?? 999) - (pb.dias ?? 999);
+      })[0];
+    const compromissosExternos = atividadesPerfil
+      .filter((a) => a.data === hojeIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo))
+      .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
+    const compromissosAmanha = atividadesPerfil.filter((a) => a.data === amanhaIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo));
+
     return (
       <>
         <LembretesRecebidos usuario={usuario} />
-        <div className="kanban-matheus">
+        <div className="kanban-matheus" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
           <div className="kanban-col-matheus">
-            <div className="kanban-col-header-matheus laranja">Lembretes do dia</div>
-            {lembretes.filter((l) => !l.hora || l.hora === '').map((l) => (
-              <div className="kanban-card-matheus lembrete" key={l.id}>
-                <div className="fw-700 fs-12">{l.titulo}</div>
-                {l.descricao && <div className="text-muted fs-11">{l.descricao}</div>}
-                <div className="fs-10" style={{ color: 'var(--laranja)' }}>🔔 Lembrete fixo</div>
-              </div>
+            <div className="kanban-col-header-matheus laranja">O que fazer hoje</div>
+            {LEMBRETES_FIXOS_MATHEUS.map((item) => (
+              <CompromissoCheck
+                key={item.id}
+                item={{
+                  id: `matheus-${item.id}`,
+                  texto: item.titulo,
+                  descricao: item.descricao,
+                  storageKey: `maxibell.matheus.fixas.${item.id}.${hojeLocal}`,
+                }}
+              />
             ))}
-            {lembretes.filter((l) => l.data && l.data <= hojeIso).map((l) => (
-              <div className="kanban-card-matheus lembrete atrasado" key={`v-${l.id}`}>
-                <div className="fw-700 fs-12">{l.titulo}</div>
-                {l.descricao && <div className="text-muted fs-11">{l.descricao}</div>}
-                <div className="fs-10" style={{ color: 'var(--vermelho)' }}>⚠ Vencido</div>
+
+            {notifMatheus.length > 0 && (
+              <div className="mt-16">
+                <div className="section-titulo mb-8">Pendências urgentes</div>
+                {notifMatheus.map((n) => (
+                  <button key={n.id} className="kanban-card-matheus atrasado" onClick={() => n.obraId && navigate(`/obras/${n.obraId}`)}>
+                    <span>🔴</span>
+                    <div className="fw-700 fs-12">{n.texto}</div>
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
+
+            {manutTriagem.length > 0 && (
+              <div className="mt-16">
+                <div className="section-titulo mb-8">Manutenções para triagem</div>
+                {manutTriagem.map((obra) => (
+                  <div key={obra.id} className="kanban-card-matheus">
+                    <span className="badge badge-alerta">Aguardando triagem</span>
+                    <div className="fw-700 fs-12">{obra.pp} — {obra.cliente}</div>
+                    <div className="text-muted fs-11">📍 {obra.cidade}</div>
+                    <button className="btn btn-primary btn-sm mt-8" onClick={() => navigate(`/obras/${obra.id}`)}>Fazer triagem</button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="kanban-col-matheus">
-            <div className="kanban-col-header-matheus vermelho">Tarefas em atraso</div>
-            {atrasadas.length ? atrasadas.map((o) => (
-              <div className="kanban-card-matheus atrasado" key={o.id} onClick={() => navigate(`/obras/${o.id}`)}>
-                <span className="badge badge-vencido">{calcPrazo(o.prazo).label}</span>
-                <div className="fw-700 fs-12">{o.pp} — {o.cliente}</div>
-                <div className="text-muted fs-11">{labelEtapa(o.etapa)}</div>
+            <div className="kanban-col-header-matheus azul">Medições e Agenda</div>
+            <div className="section-titulo mb-8">Medição inicial em aberto</div>
+            {medicaoAberta ? (
+              <div className="kanban-card-matheus" onClick={() => navigate(`/obras/${medicaoAberta.id}`)}>
+                <span className={`badge ${calcPrazo(medicaoAberta.prazo).classe}`}>{calcPrazo(medicaoAberta.prazo).label}</span>
+                <div className="fw-700 fs-12">{medicaoAberta.pp} — {medicaoAberta.cliente}</div>
+                <div className="text-muted fs-11">📍 {medicaoAberta.cidade}</div>
+                <button className="btn btn-secondary btn-sm mt-8">Ver obra</button>
               </div>
-            )) : <div className="empty-state">Nenhuma tarefa atrasada</div>}
-          </div>
+            ) : (
+              <div className="empty-state">✅ Nenhuma medição inicial em aberto.</div>
+            )}
 
-          <div className="kanban-col-matheus">
-            <div className="kanban-col-header-matheus azul">Compromissos externos</div>
+            <div className="section-titulo mt-16 mb-8">Compromissos externos de hoje</div>
             {compromissosExternos.map((a) => (
               <div className="kanban-card-matheus" key={a.id} onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
-                <span className="badge badge-info">{a.tipo}</span>
+                <span className={`badge ${a.tipo === 'Reunião Comercial' ? 'badge-alerta' : 'badge-info'}`}>{a.tipo}</span>
                 <div className="fw-700 fs-12">{a.pp ? `${a.pp} — ` : ''}{a.cliente}</div>
                 <div className="text-muted fs-11">📍 {a.cidade}</div>
                 {a.hora && <div className="fs-11" style={{ color: 'var(--azul-claro)' }}>🕐 {a.hora}</div>}
               </div>
             ))}
-            {!compromissosExternos.length && <div className="empty-state">Nenhum compromisso hoje</div>}
+            {!compromissosExternos.length && <div className="empty-state">Nenhum compromisso externo hoje.</div>}
+
+            {new Date().getHours() >= 14 && compromissosAmanha.length > 0 && !matheusAmanhaOk && (
+              <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 8, padding: '10px 14px', marginTop: 16 }}>
+                <div className="fs-13 mb-8" style={{ color: '#92400E' }}>
+                  Você tem {compromissosAmanha.length} atividade(s) amanhã. Está preparado?
+                </div>
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    localStorage.setItem(`maxibell.matheus.amanha.${hojeLocal}`, 'true');
+                    setMatheusAmanhaOk(true);
+                  }}
+                >
+                  Sim
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </>

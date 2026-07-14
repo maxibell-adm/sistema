@@ -1,5 +1,6 @@
-import { labelEtapa } from '@/config/etapas.js';
+import { labelEtapa, PRAZOS_DIAS } from '@/config/etapas.js';
 import { usuarioPorRole } from '@/config/usuarios.js';
+import { responsavelDaEtapa } from '@/rules/responsaveisRules.js';
 
 function normalizarTexto(valor = '') {
   return String(valor)
@@ -317,4 +318,289 @@ export function calcularSaudeObra(obra) {
     nivel: valor >= 75 ? 'ok' : valor >= 45 ? 'atencao' : 'critico',
     motivos,
   };
+}
+
+function hojeInicio() {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+  return hoje;
+}
+
+function parseDataOperacional(data) {
+  if (!data) return null;
+  if (data instanceof Date) return Number.isNaN(data.getTime()) ? null : data;
+  const valor = String(data).trim();
+  const dataBr = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (dataBr) {
+    const [, dia, mes, ano] = dataBr;
+    const d = new Date(Number(ano), Number(mes) - 1, Number(dia));
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(valor) ? new Date(`${valor}T00:00:00`) : new Date(valor);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function diasDesdeOperacional(data) {
+  const d = parseDataOperacional(data);
+  if (!d) return 0;
+  d.setHours(0, 0, 0, 0);
+  return Math.floor((hojeInicio() - d) / 86400000);
+}
+
+function diasAteOperacional(data) {
+  const d = parseDataOperacional(data);
+  if (!d) return null;
+  d.setHours(0, 0, 0, 0);
+  return Math.ceil((d - hojeInicio()) / 86400000);
+}
+
+function dataIsoMaisDias(dias) {
+  const d = hojeInicio();
+  d.setDate(d.getDate() + dias);
+  return d.toISOString().split('T')[0];
+}
+
+function atividadeEInstalacao(atividade) {
+  return normalizarTexto(atividade?.tipo) === 'instalacao';
+}
+
+function textoListaCidades(cidades) {
+  return cidades.filter(Boolean).join(', ');
+}
+
+function lerLembretesApp() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem('maxibell.lembretes.app');
+    return [];
+  }
+}
+
+export function verificarComunicacoesOperacionais(obras = [], atividades = [], gerarNotificacao) {
+  if (!gerarNotificacao) return;
+
+  const hoje = new Date().toISOString().split('T')[0];
+  const chaveGlobal = `maxibell.verificacao.comunicacoes.${hoje}`;
+  if (localStorage.getItem(chaveGlobal) === 'true') return;
+  localStorage.setItem(chaveGlobal, 'true');
+
+  const alvaro = usuarioPorRole('admin')?.nome || 'Álvaro';
+  const andre = usuarioPorRole('operacional')?.nome || 'André';
+  const ana = usuarioPorRole('comercial')?.nome || 'Ana';
+  const matheus = usuarioPorRole('medicao')?.nome || 'Matheus';
+
+  function podeNotificar(tipo, obraId, diasDecorridos, intervaloEmDias) {
+    const ciclo = Math.floor(Math.max(0, diasDecorridos) / intervaloEmDias);
+    const chaveGerada = `maxibell.notif.${tipo}.${obraId}.${ciclo}`;
+    const chaveResolvido = `maxibell.notif.${tipo}.${obraId}.resolvido`;
+    const resolvido = localStorage.getItem(chaveResolvido) === 'true';
+    const jaGerada = localStorage.getItem(chaveGerada) === 'true';
+    if (jaGerada) return false;
+    if (resolvido && ciclo <= 2) return false;
+    localStorage.setItem(chaveGerada, 'true');
+    return true;
+  }
+
+  function notificar(config) {
+    if (!config.para) return;
+    gerarNotificacao(config);
+  }
+
+  function chaveUnica(chave) {
+    if (localStorage.getItem(chave) === 'true') return false;
+    localStorage.setItem(chave, 'true');
+    return true;
+  }
+
+  obras.forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    const diasNaEtapa = diasDesdeOperacional(obra.atualizadoEm || obra.criadoEm);
+
+    if (obra.pendencia?.aberta === true) {
+      const prazo = Number(obra.pendencia.prazo || 0);
+      const diasPendencia = diasDesdeOperacional(obra.pendencia.dataCriacao || obra.pendencia.criadaEm);
+      if (prazo && diasPendencia > prazo && podeNotificar('pend_proj', obraId, diasPendencia, 3)) {
+        const atraso = diasPendencia - prazo;
+        notificar({
+          para: obra.pendencia.responsavel,
+          texto: `${obra.pp} — pendência de projeto vencida há ${atraso} dias: ${obra.pendencia.tipo}`,
+          tipo: 'bloqueio',
+          obraId,
+        });
+        notificar({
+          para: alvaro,
+          texto: `Pendência de projeto vencida em ${obra.pp} — ${obra.cliente}. Responsável: ${obra.pendencia.responsavel}`,
+          tipo: 'bloqueio',
+          obraId,
+        });
+      }
+    }
+
+    const diasCriacao = diasDesdeOperacional(obra.criadoEm);
+    if (obra.etapa === 'pedido_inicial' && !obra.vhsysEsquadria?.trim() && diasCriacao > 2 && podeNotificar('vhsys_vazio', obraId, diasCriacao, 3)) {
+      notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: VHSYS não preenchido há ${diasCriacao} dias`, tipo: 'bloqueio', obraId });
+      notificar({ para: alvaro, texto: `VHSYS pendente há ${diasCriacao} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'bloqueio', obraId });
+    }
+
+    if (obra.etapa === 'compras') {
+      const vidro = obra.compras?.vidro;
+      const diasVidro = diasDesdeOperacional(vidro?.dataPedido);
+      if (vidro?.dataPedido && diasVidro > 7 && vidro.status !== 'ok' && podeNotificar('vidro_atraso', obraId, diasVidro, 3)) {
+        const texto = `${obra.pp}: vidro pedido há ${diasVidro} dias sem confirmação de entrega`;
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+      }
+
+      const acessorios = obra.compras?.acessorios;
+      const diasAcessorios = diasDesdeOperacional(acessorios?.dataPedido);
+      if (acessorios?.dataPedido && diasAcessorios > 10 && acessorios.status !== 'ok' && podeNotificar('acess_atraso', obraId, diasAcessorios, 3)) {
+        const texto = `${obra.pp}: acessórios pedidos há ${diasAcessorios} dias sem confirmação`;
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+      }
+
+      const perfil = obra.compras?.perfil;
+      const diasPerfil = diasDesdeOperacional(perfil?.dataPedido);
+      if (perfil?.dataPedido && diasPerfil > 10 && perfil.status !== 'ok' && podeNotificar('perfil_atraso', obraId, diasPerfil, 3)) {
+        const texto = `${obra.pp}: perfil pedido há ${diasPerfil} dias sem confirmação`;
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+      }
+
+      const diasAgenda = diasAteOperacional(obra.dataAgendada);
+      if (obra.dataAgendada && diasAgenda !== null && diasAgenda <= 7 && podeNotificar('conflito_agenda', obraId, Math.max(0, 7 - diasAgenda), 3)) {
+        const texto = `CONFLITO: ${obra.pp} tem instalação em ${obra.dataAgendada} mas ainda está em Compras`;
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+      }
+    }
+
+    const obraAtiva = !['finalizado', 'manutencao'].includes(obra.etapa);
+    const prazoEtapa = PRAZOS_DIAS[obra.etapa];
+    if (obraAtiva && prazoEtapa && diasNaEtapa > prazoEtapa && podeNotificar(`etapa_parada.${obra.etapa}`, obraId, diasNaEtapa, 4)) {
+      const responsavel = responsavelDaEtapa(obra.etapa);
+      notificar({
+        para: responsavel,
+        texto: `${obra.pp} — ${labelEtapa(obra.etapa)} parada há ${diasNaEtapa} dias (prazo: ${prazoEtapa} dias)`,
+        tipo: 'urgente',
+        obraId,
+      });
+      notificar({
+        para: alvaro,
+        texto: `${obra.pp} — ${obra.cliente}: ${labelEtapa(obra.etapa)} em atraso há ${diasNaEtapa} dias`,
+        tipo: 'urgente',
+        obraId,
+      });
+    }
+
+    if (['instalacao', 'entrega', 'entrega_cm'].includes(obra.etapa) && !obra.dataAgendada && diasNaEtapa > 2 && podeNotificar('sem_agenda', obraId, diasNaEtapa, 4)) {
+      notificar({
+        para: andre,
+        texto: `${obra.pp} — ${obra.cliente}: em ${labelEtapa(obra.etapa)} há ${diasNaEtapa} dias sem agendamento`,
+        tipo: 'urgente',
+        obraId,
+      });
+    }
+
+    if (obra.etapa === 'instalacao' && (!obra.visitas || obra.visitas.length === 0) && diasNaEtapa > 3 && podeNotificar('sem_visita', obraId, diasNaEtapa, 4)) {
+      const texto = `${obra.pp}: instalação iniciada há ${diasNaEtapa} dias sem nenhuma visita registrada`;
+      notificar({ para: andre, texto, tipo: 'urgente', obraId });
+      notificar({ para: alvaro, texto, tipo: 'urgente', obraId });
+    }
+
+    const visitas = obra.visitas || [];
+    const ultimaVisitaPendenteIndex = visitas.map((visita, index) => ({ visita, index })).filter(({ visita }) => visita.pendente).pop();
+    if (ultimaVisitaPendenteIndex && ultimaVisitaPendenteIndex.index === visitas.length - 1) {
+      const ultimaVisita = ultimaVisitaPendenteIndex.visita;
+      const diasPendente = diasDesdeOperacional(ultimaVisita.data || ultimaVisita.registradoEm);
+      if (diasPendente > 5 && podeNotificar('visita_pendente', obraId, diasPendente, 4)) {
+        const texto = `${obra.pp}: pendente na instalação há ${diasPendente} dias: '${ultimaVisita.pendente}'`;
+        notificar({ para: andre, texto, tipo: 'urgente', obraId });
+        notificar({ para: alvaro, texto, tipo: 'urgente', obraId });
+      }
+    }
+
+    if (obra.etapa === 'manutencao') {
+      const ultimaVisita = visitas[visitas.length - 1];
+      const diasUltimaVisita = ultimaVisita ? diasDesdeOperacional(ultimaVisita.data || ultimaVisita.registradoEm) : null;
+      if (diasNaEtapa > 5 && (!visitas.length || diasUltimaVisita > 5) && podeNotificar('manut_sem_visita', obraId, diasNaEtapa, 4)) {
+        notificar({ para: matheus, texto: `${obra.pp} — ${obra.cliente}: manutenção aguardando triagem há ${diasNaEtapa} dias`, tipo: 'urgente', obraId });
+        notificar({ para: alvaro, texto: `Manutenção sem triagem há ${diasNaEtapa} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'urgente', obraId });
+      }
+    }
+
+    if ((obra.manutencoes || []).length >= 2 && chaveUnica(`maxibell.notif.manut_recorrente.${obraId}`)) {
+      notificar({
+        para: alvaro,
+        texto: `${obra.pp} — ${obra.cliente}: ${obra.manutencoes.length}ª manutenção registrada. Avaliar causa raiz.`,
+        tipo: 'aviso',
+        obraId,
+      });
+    }
+
+    if (obraAtiva && diasNaEtapa > 7 && !prazoEtapa && podeNotificar('obra_parada', obraId, diasNaEtapa, 3)) {
+      notificar({
+        para: responsavelDaEtapa(obra.etapa),
+        texto: `${obra.pp} — ${labelEtapa(obra.etapa)}: sem movimentação há ${diasNaEtapa} dias`,
+        tipo: 'aviso',
+        obraId,
+      });
+    }
+  });
+
+  lerLembretesApp()
+    .filter((lembrete) => normalizarTexto(lembrete.titulo).includes('follow-up') && lembrete.concluido === false)
+    .forEach((lembrete) => {
+      const lembreteId = lembrete.id || lembrete.titulo;
+      const diasLembrete = diasDesdeOperacional(lembrete.criadoEm);
+      if (diasLembrete > 20 && podeNotificar('followup20', lembreteId, diasLembrete, 3)) {
+        notificar({
+          para: ana,
+          texto: `Follow-up pendente há ${diasLembrete} dias: ${lembrete.titulo}. Registrar contato com o cliente.`,
+          tipo: 'aviso',
+          obraId: lembrete.obraId || null,
+        });
+      }
+      if (diasLembrete > 45 && podeNotificar('followup45', lembreteId, diasLembrete, 3)) {
+        notificar({
+          para: alvaro,
+          texto: `Follow-up de ${diasLembrete} dias sem conclusão: ${lembrete.titulo}. Verificar com Ana.`,
+          tipo: 'aviso',
+          obraId: lembrete.obraId || null,
+        });
+      }
+    });
+
+  const atividadesMatheusPorData = (atividades || []).reduce((acc, atividade) => {
+    if (atividade.responsavel !== matheus && atividade.responsavelExecucao !== matheus) return acc;
+    if (!atividade.data) return acc;
+    acc[atividade.data] = acc[atividade.data] || [];
+    acc[atividade.data].push(atividade);
+    return acc;
+  }, {});
+
+  Object.entries(atividadesMatheusPorData).forEach(([data, itens]) => {
+    const cidades = [...new Set(itens.map((item) => item.cidade).filter(Boolean))];
+    if (cidades.length > 1 && chaveUnica(`maxibell.notif.cidades_matheus.${data}`)) {
+      const cidadesTexto = textoListaCidades(cidades);
+      notificar({ para: matheus, texto: `Você tem atividades em cidades diferentes no dia ${data}: ${cidadesTexto}. Confirmar logística.`, tipo: 'aviso', obraId: null });
+      notificar({ para: alvaro, texto: `Matheus está agendado em ${cidadesTexto} no mesmo dia (${data}).`, tipo: 'aviso', obraId: null });
+    }
+  });
+
+  const diaSemana = new Date().getDay();
+  if (diaSemana >= 1 && diaSemana <= 5) {
+    const temMontagemEmAndamento = obras.some((obra) => obra.etapa === 'montagem' && obra.montagemIniciada === true);
+    if (!temMontagemEmAndamento && chaveUnica(`maxibell.notif.fabrica_parada.${hoje}`)) {
+      notificar({ para: alvaro, texto: 'Fábrica sem nenhuma montagem em andamento hoje. Verificar com André.', tipo: 'aviso', obraId: null });
+    }
+  }
+
+  const proximosTresDias = [1, 2, 3].map(dataIsoMaisDias);
+  const temInstalacaoProxima = (atividades || []).some((atividade) => atividadeEInstalacao(atividade) && proximosTresDias.includes(atividade.data));
+  if (!temInstalacaoProxima && chaveUnica(`maxibell.notif.sem_instalacao.${hoje}`)) {
+    notificar({ para: alvaro, texto: 'Nenhuma instalação agendada para os próximos 3 dias.', tipo: 'aviso', obraId: null });
+  }
 }

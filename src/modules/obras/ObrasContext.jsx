@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { ITENS_COMPRA, comprasPadrao, etapaInicial } from '@/config/constantes.js';
 import { ETAPA_INICIAL_OC, ETAPAS, SEQUENCIA_OC, labelEtapa, proximaEtapaDepoisPedidoInicial, responsavelDaEtapa } from '@/config/etapas.js';
-import { podeAvancarEtapa } from '@/config/usuarios.js';
+import { podeAvancarEtapa, usuarioPorRole } from '@/config/usuarios.js';
 import { OBRAS_EXEMPLO } from '@/modules/obras/obrasData.js';
 import { useApp } from '@/modules/layout/AppContext.jsx';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { addDias, calcularPrazo, calcularPrazoOC } from '@/rules/prazosRules.js';
-import { gerarPendenciaVhsys, labelTipoOC, validarPedidoInicial, verificarPrazosOC } from '@/rules/eventosRules.js';
+import { gerarPendenciaVhsys, labelTipoOC, validarPedidoInicial, verificarComunicacoesOperacionais, verificarPrazosOC } from '@/rules/eventosRules.js';
 import { RESPONSAVEL_ETAPA } from '@/rules/responsaveisRules.js';
 
 const ObrasContext = createContext(null);
@@ -72,12 +72,13 @@ function horaAgora() {
 
 export function ObrasProvider({ children }) {
   const [obras, setObras] = useState(OBRAS_EXEMPLO);
-  const { gerarNotificacao, mostrarToast } = useApp();
+  const { gerarNotificacao, mostrarToast, atividades } = useApp();
   const { usuario } = useAuth();
 
   useEffect(() => {
     verificarPrazosOC(obras, gerarNotificacao);
-  }, [obras, gerarNotificacao]);
+    verificarComunicacoesOperacionais(obras, atividades, gerarNotificacao);
+  }, [obras, atividades, gerarNotificacao]);
 
   function atualizarObra(id, patch) {
     setObras((atuais) => atuais.map((obra) => (obra.id === id ? { ...obra, ...patch, atualizadoEm: new Date().toISOString() } : obra)));
@@ -290,7 +291,33 @@ export function ObrasProvider({ children }) {
 
     atualizarObra(obraId, patch);
     if (responsavel) gerarNotificacao({ para: responsavel, texto: `${usuario.nome} avançou ${obra.pp} para ${labelEtapa(destino)}.`, tipo: 'info', cor: '#1E5799', obraId });
-    if (destino === 'finalizado') gerarNotificacao({ para: 'Álvaro', texto: `Obra finalizada: ${obra.pp} - ${obra.cliente}. Atualizar no VHSYS como atendido.`, tipo: 'sucesso', cor: '#27AE60', obraId });
+    if (destino === 'finalizado') {
+      gerarNotificacao({ para: 'Álvaro', texto: `Obra finalizada: ${obra.pp} - ${obra.cliente}. Atualizar no VHSYS como atendido.`, tipo: 'sucesso', cor: '#27AE60', obraId });
+
+      const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
+      const responsavelComercial = usuarioPorRole('comercial')?.nome || 'Ana';
+      lembretes.unshift({
+        id: `followup-${obra.pp}-${Date.now()}`,
+        titulo: `Follow-up: ${obra.pp} — ${obra.cliente}`,
+        descricao: 'Obra finalizada. Entrar em contato com o cliente para verificar satisfação e colher feedback.',
+        responsavel: responsavelComercial,
+        tag: 'comercial',
+        criadoEm: new Date().toLocaleDateString('pt-BR'),
+        criadoPor: 'Sistema',
+        concluido: false,
+        obraId: obra.id,
+        pp: obra.pp,
+      });
+      localStorage.setItem('maxibell.lembretes.app', JSON.stringify(lembretes));
+
+      gerarNotificacao({
+        para: responsavelComercial,
+        texto: `Obra finalizada: ${obra.pp} — ${obra.cliente}. Registrar follow-up com o cliente.`,
+        tipo: 'info',
+        cor: '#8E44AD',
+        obraId,
+      });
+    }
     mostrarToast('Etapa avançada e histórico registrado.', 'success');
     return { ok: true };
   }
@@ -616,6 +643,12 @@ export function ObrasProvider({ children }) {
         tipo: 'comentario',
       };
       patch.historico = [...obra.historico, evento];
+      gerarNotificacao({
+        para: usuarioPorRole('operacional')?.nome,
+        texto: `VHSYS de ${obra.pp} atualizado por ${usuario.nome}.`,
+        tipo: 'info',
+        obraId,
+      });
     }
     atualizarObra(obraId, patch);
   }
@@ -769,4 +802,3 @@ export function ObrasProvider({ children }) {
 export function useObrasContext() {
   return useContext(ObrasContext);
 }
-

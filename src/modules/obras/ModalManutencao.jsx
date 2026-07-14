@@ -14,7 +14,7 @@ function indiceDiaSemana(data) {
 }
 
 export default function ModalManutencao({ onClose }) {
-  const { criarAtividade, atividades } = useApp();
+  const { criarAtividade, atividades, gerarNotificacao } = useApp();
   const { usuario } = useAuth();
   const { obras, atualizarObra } = useObras();
   const responsavelPadrao = usuarioPorRole('medicao')?.nome || usuario.nome;
@@ -100,6 +100,42 @@ export default function ModalManutencao({ onClose }) {
         }],
       });
     }
+    if (original && usuario.role === 'medicao') {
+      atualizarObra(original.id, { manutencaoTriada: true });
+      gerarNotificacao?.({
+        para: usuarioPorRole('operacional')?.nome,
+        texto: `Matheus concluiu a triagem de ${original.pp} — ${original.cliente}. Verificar observações e decidir próximos passos.`,
+        tipo: 'info',
+        obraId: original.id,
+      });
+    }
+
+    if (usuario.role === 'operacional') {
+      const item = {
+        id: `manut-ana-${Date.now()}`,
+        pp: form.pp,
+        cliente: form.cliente,
+        dataSugerida: form.data,
+        hora: form.hora || '',
+        motivo: form.motivo || form.obs,
+        status: 'aguardando',
+      };
+      let atual = [];
+      try {
+        const parsed = JSON.parse(localStorage.getItem('maxibell.manutencao.aguardando_ana') || '[]');
+        atual = Array.isArray(parsed) ? parsed : [];
+      } catch {
+        localStorage.removeItem('maxibell.manutencao.aguardando_ana');
+      }
+      localStorage.setItem('maxibell.manutencao.aguardando_ana', JSON.stringify([item, ...atual]));
+      gerarNotificacao?.({
+        para: usuarioPorRole('comercial')?.nome,
+        texto: `Manutenção de ${form.pp} — ${form.cliente} precisa de confirmação do cliente. Data sugerida: ${form.data}.`,
+        tipo: 'urgente',
+        cor: '#E67E22',
+      });
+    }
+
     onClose();
   }
 
