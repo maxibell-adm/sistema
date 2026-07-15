@@ -1940,8 +1940,12 @@ export default function Dashboard() {
     const obrasSemVhsys = obrasVisiveis.filter((o) => o.etapa === 'pedido_inicial' && !o.vhsysEsquadria?.trim());
     const pendenciasParaAlvaro = obrasVisiveis.filter((o) => o.pendencia?.aberta && o.pendencia?.responsavel === 'Álvaro');
     const obrasComConflito = obrasAtivas.filter((o) => o.etapa === 'compras' && o.dataAgendada);
+    const hoje = new Date().toLocaleDateString('pt-BR');
     const notifCriticasAlvaro = (notificacoes || []).filter((n) =>
-      !n.lida && ['bloqueio', 'urgente'].includes(n.tipo)
+      !n.lida &&
+      ['bloqueio', 'urgente', 'critico'].includes(n.tipo) &&
+      n.natureza === 'evento' &&
+      n.data === hoje
     );
     const totalAlertas = obrasAtrasadas.length + pendenciasParaAlvaro.length + obrasComConflito.length + notifCriticasAlvaro.length;
     const fraseContextual = totalAlertas === 0

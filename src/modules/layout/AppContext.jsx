@@ -12,7 +12,19 @@ function carregarNotificacoes(nome) {
   try {
     const salvas = localStorage.getItem(CHAVE_NOTIF(nome));
     const parsed = salvas ? JSON.parse(salvas) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // Limpar automaticamente notificações com mais de 7 dias
+    const limite = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const filtradas = parsed.filter((n) => {
+      if (!n.id) return false;
+      const ts = Number(n.id);
+      return isNaN(ts) || ts > limite;
+    });
+    // Se limpou algo, persistir já limpo
+    if (filtradas.length !== parsed.length) {
+      localStorage.setItem(CHAVE_NOTIF(nome), JSON.stringify(filtradas));
+    }
+    return filtradas;
   } catch {
     localStorage.removeItem(CHAVE_NOTIF(nome));
     return [];

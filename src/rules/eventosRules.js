@@ -229,12 +229,16 @@ export function verificarNotificacoesAmanha(atividades, gerarNotificacao) {
         para: usuarioPorRole('medicao')?.nome,
         texto: `Lembrete: reunião comercial amanhã - ${a.cliente} em ${a.cidade}. Confirmar presença.`,
         tipo: 'urgente',
+        natureza: 'evento',
+        origem: 'Sistema',
         obraId: a.obraId || null,
       });
       gerarNotificacao({
         para: usuarioPorRole('comercial')?.nome,
         texto: `Reunião comercial amanhã com ${a.cliente} (${a.cidade}). Confirmar com ${a.responsavelExecucao || a.responsavel}.`,
         tipo: 'urgente',
+        natureza: 'evento',
+        origem: 'Sistema',
         obraId: a.obraId || null,
       });
       return;
@@ -244,6 +248,8 @@ export function verificarNotificacoesAmanha(atividades, gerarNotificacao) {
       para: usuarioPorRole('comercial')?.nome,
       texto: `AVISAR CLIENTE: ${a.tipo} agendada para amanhã - ${a.cliente} (${a.cidade}). Equipe: ${a.responsavelExecucao || a.responsavel}.`,
       tipo: 'urgente',
+      natureza: 'evento',
+      origem: 'Sistema',
       obraId: a.obraId || null,
     });
   });

@@ -36,7 +36,7 @@ export default function ModalAvancarEtapa({ obra, onClose, etapaInicial }) {
   const [verificacao, setVerificacao] = useState(null);
   const [obsDivisao, setObsDivisao] = useState('');
   const [modalDivisao, setModalDivisao] = useState(false);
-  const [etapaCondicao, setEtapaCondicao] = useState(obra.etapa === 'medicao_inicial' ? 'pergunta' : 'normal');
+  const [etapaCondicao, setEtapaCondicao] = useState('normal'); // pergunta aparece via verificacao condicao-final-pergunta
   const [temCondicaoEspecial, setTemCondicaoEspecial] = useState(false);
   const [condicaoTexto, setCondicaoTexto] = useState('');
   const { avancarEtapa, registrarAvisoDivisao, resolverPendencia, atualizarObra, gerarNotificacao } = useObrasContext();
@@ -47,7 +47,8 @@ export default function ModalAvancarEtapa({ obra, onClose, etapaInicial }) {
   const ehSaidaMontagem = obra.etapa === 'montagem' && ['entrega', 'instalacao', 'finalizado'].includes(novaEtapa) && ['admin', 'operacional'].includes(usuario.role);
 
   function executarAvanco(motivoFinal = motivo) {
-    if (obra.etapa === 'medicao_inicial' && temCondicaoEspecial && condicaoTexto.trim()) {
+    const etapasComCondicao = ['medicao_inicial', 'medicao_final'];
+    if (etapasComCondicao.includes(obra.etapa) && temCondicaoEspecial && condicaoTexto.trim()) {
       const agora = new Date();
       atualizarObra(obra.id, {
         condicaoEspecial: {
@@ -65,10 +66,13 @@ export default function ModalAvancarEtapa({ obra, onClose, etapaInicial }) {
           tipo: 'condicao_especial',
         }],
       });
+      const destino = obra.etapa === 'medicao_final' ? 'Allana' : usuarioPorRole('admin')?.nome;
       gerarNotificacao({
-        para: usuarioPorRole('admin')?.nome,
-        texto: `Condição especial registrada em ${obra.pp} - ${obra.cliente}: ${condicaoTexto.trim()}`,
+        para: destino,
+        texto: `⚠ Condição especial registrada em ${obra.pp} - ${obra.cliente}: ${condicaoTexto.trim()}`,
         tipo: 'atencao',
+        natureza: 'evento',
+        origem: usuario.nome,
         obraId: obra.id,
       });
     }
