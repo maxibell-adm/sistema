@@ -672,8 +672,10 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
 
   obras.forEach((obra) => {
     const obraId = obra.id || obra.pp;
-    if (obra.etapa === 'instalacao') {
-      const diasNaEtapa = Math.floor((Date.now() - new Date(obra.atualizadoEm || obra.criadoEm).getTime()) / 86400000);
+    if (obra.etapa === 'instalacao' && obra.instalacaoIniciada) {
+      // Só conta dias após o início formal da instalação
+      const dataReferencia = obra.instalacaoIniciadaEm || obra.atualizadoEm || obra.criadoEm;
+      const diasNaEtapa = Math.floor((Date.now() - new Date(dataReferencia).getTime()) / 86400000);
       if (diasNaEtapa >= 10 && podeNotificar('instalacao_parada', obraId, diasNaEtapa, 3)) {
         notificar({
           para: andre,
@@ -696,9 +698,10 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
   const producaoIniciada = obras.filter((obra) => obra.etapa === 'montagem' && obra.montagemIniciada).length;
   const montagemNaoIniciada = obras.filter((obra) => obra.etapa === 'montagem' && !obra.montagemIniciada);
   if (producaoIniciada <= 1 && montagemNaoIniciada.length > 0 && chaveUnica(`maxibell.notif.producao_baixa.${hoje}`)) {
+    const listaMontagem = montagemNaoIniciada.slice(0, 3).map((o) => `${o.pp} — ${o.cliente}`).join(', ');
     notificar({
       para: andre,
-      texto: `Produção baixa: apenas ${producaoIniciada} montagem em andamento. ${montagemNaoIniciada.length} obra(s) disponíveis para iniciar.`,
+      texto: `Produção baixa: ${producaoIniciada} montagem ativa. Disponíveis para iniciar: ${listaMontagem}${montagemNaoIniciada.length > 3 ? ` e mais ${montagemNaoIniciada.length - 3}` : ''}.`,
       tipo: 'urgente',
       cor: 'var(--laranja)',
     });
@@ -710,7 +713,18 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     });
   }
 
-  const disponivelInstalacao = obras.filter((obra) => obra.etapa === 'instalacao').length;
+  const obrasDispInstalar = obras.filter((obra) => obra.etapa === 'instalacao');
+  const disponivelInstalacao = obrasDispInstalar.length;
+    // Alerta: obra pronta para instalação há 10+ dias sem início formal
+  obras.filter((o) => o.etapa === 'instalacao' && !o.instalacaoIniciada).forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    const diasPronta = Math.floor((Date.now() - new Date(obra.atualizadoEm || obra.criadoEm).getTime()) / 86400000);
+    if (diasPronta >= 10 && podeNotificar('pronta_sem_inicio', obraId, diasPronta, 3)) {
+      notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: pronta para instalação há ${diasPronta} dias sem início registrado.`, tipo: 'critico', cor: 'var(--vermelho)', obraId: obra.id });
+      notificar({ para: alvaro, texto: `${obra.pp} — ${obra.cliente}: aguardando início de instalação há ${diasPronta} dias.`, tipo: 'urgente', cor: 'var(--vermelho)', obraId: obra.id });
+    }
+  });
+
   if (disponivelInstalacao === 0 && chaveUnica(`maxibell.notif.sem_obras_instalacao.${hoje}`)) {
     notificar({
       para: andre,

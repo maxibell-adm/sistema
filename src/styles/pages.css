@@ -244,3 +244,119 @@
   color: var(--cinza-escuro);
   flex: 1;
 }
+
+/* ─── BRIEFING OPERACIONAL — OVERLAY FULLSCREEN ─── */
+.briefing-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--pg-bg, #F0F4F8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.briefing-header {
+  background: var(--azul);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+.briefing-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.briefing-saudacao {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+}
+.briefing-data {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+}
+.briefing-progress {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+.briefing-progress-dot {
+  width: 28px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255,255,255,0.25);
+  transition: background .2s;
+}
+.briefing-progress-dot.ativo {
+  background: #fff;
+}
+.briefing-counter {
+  font-size: 11px;
+  color: rgba(255,255,255,0.65);
+  white-space: nowrap;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+}
+.briefing-slide {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 24px;
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.briefing-slide-titulo {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--azul);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.briefing-slide-conteudo {
+  font-size: 13px;
+  color: var(--cinza-escuro);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.briefing-slide-itens {
+  display: flex;
+  flex-direction: column;
+}
+.briefing-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--cinza-claro);
+  font-size: 14px;
+  color: var(--cinza-escuro);
+  line-height: 1.5;
+}
+.briefing-item-bullet {
+  color: var(--azul);
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.briefing-slide-final {
+  max-width: 480px;
+}
+.briefing-footer {
+  background: var(--branco);
+  border-top: 1px solid var(--cinza-borda);
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}

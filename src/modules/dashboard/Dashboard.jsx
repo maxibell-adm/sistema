@@ -610,19 +610,37 @@ function normalizarNomeChave(nome) {
 }
 
 function BriefingOperacional({ usuario, blocos, onConcluir }) {
+  const blocosValidos = blocos.filter((b) => b && (b.itens?.length > 0 || b.conteudo));
+  const totalSlides = blocosValidos.length + 1;
+  const [slideAtualBriefing, setSlideAtualBriefing] = useState(0);
   const [tempoInicio] = useState(Date.now());
   const [podeConfirmar, setPodeConfirmar] = useState(false);
   const [duvida, setDuvida] = useState('');
   const [mostrarDuvida, setMostrarDuvida] = useState(false);
   const [resposta, setResposta] = useState(null);
 
+  const isDev = typeof window !== 'undefined' && window.location.search.includes('dev=1');
+
   useEffect(() => {
     const timer = setTimeout(() => setPodeConfirmar(true), 30000);
     return () => clearTimeout(timer);
   }, []);
 
-  const isDev = typeof window !== 'undefined' && window.location.search.includes('dev=1');
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
   const podeConfirmarFinal = podeConfirmar || isDev;
+  const ehUltimoBriefing = slideAtualBriefing === totalSlides - 1;
+  const blocoAtual = slideAtualBriefing < blocosValidos.length ? blocosValidos[slideAtualBriefing] : null;
+
+  const saudacao = (() => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Bom dia';
+    if (h < 18) return 'Boa tarde';
+    return 'Boa noite';
+  })();
 
   function concluir() {
     const agora = new Date();
@@ -638,7 +656,6 @@ function BriefingOperacional({ usuario, blocos, onConcluir }) {
     const nomeChave = normalizarNomeChave(usuario.nome);
     localStorage.setItem(`maxibell.abertura.${nomeChave}.${hoje}`, 'true');
     localStorage.setItem(`maxibell.abertura.registro.${nomeChave}.${hoje}`, JSON.stringify(registro));
-
     if (mostrarDuvida && duvida.trim()) {
       const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
       lembretes.unshift({
@@ -656,93 +673,100 @@ function BriefingOperacional({ usuario, blocos, onConcluir }) {
     onConcluir();
   }
 
-  const saudacao = (() => {
-    const h = new Date().getHours();
-    if (h < 12) return 'Bom dia';
-    if (h < 18) return 'Boa tarde';
-    return 'Boa noite';
-  })();
-
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: '24px 16px' }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 22, fontWeight: 800, color: 'var(--azul)' }}>
-          {saudacao}, {usuario.nome}.
+    <div className="briefing-overlay">
+      <div className="briefing-header">
+        <div className="briefing-header-info">
+          <span className="briefing-saudacao">{saudacao}, {usuario.nome}.</span>
+          <span className="briefing-data">
+            {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+          </span>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--cinza-medio)', marginTop: 4 }}>
-          {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        <div className="briefing-progress">
+          {Array.from({ length: totalSlides }).map((_, i) => (
+            <div key={i} className={`briefing-progress-dot ${i <= slideAtualBriefing ? 'ativo' : ''}`} />
+          ))}
         </div>
+        <span className="briefing-counter">{slideAtualBriefing + 1} / {totalSlides}</span>
       </div>
 
-      {blocos.map((bloco, i) => (
-        bloco.itens?.length > 0 || bloco.conteudo ? (
-          <section key={i} className="card card-pad mb-12">
-            <div className="section-titulo mb-10">{bloco.emoji} {bloco.titulo}</div>
-            {bloco.conteudo}
-            {bloco.itens?.map((item, j) => (
-              <div key={j} style={{ fontSize: 12, color: 'var(--cinza-escuro)', padding: '6px 0', borderBottom: '1px solid var(--cinza-claro)', display: 'flex', gap: 8 }}>
-                <span style={{ color: 'var(--azul)', flexShrink: 0 }}>•</span>
-                <span>{item}</span>
-              </div>
-            ))}
-          </section>
-        ) : null
-      ))}
-
-      <section className="card card-pad mb-16">
-        <div className="section-titulo mb-12">Tudo entendido?</div>
-        {!resposta && (
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              onClick={() => setResposta('sim')}
-            >
-              ✅ Sim, estou pronto
-            </button>
-            <button
-              className="btn btn-secondary btn-sm"
-              style={{ flex: 1 }}
-              onClick={() => { setResposta('duvida'); setMostrarDuvida(true); }}
-            >
-              ❓ Tenho uma dúvida
-            </button>
-          </div>
-        )}
-        {resposta === 'sim' && (
-          <div style={{ fontSize: 12, color: 'var(--verde)' }}>✅ Ótimo! Pode confirmar abaixo.</div>
-        )}
-        {mostrarDuvida && (
-          <div style={{ marginTop: 12 }}>
-            <textarea
-              value={duvida}
-              onChange={(e) => setDuvida(e.target.value)}
-              placeholder="Descreva sua dúvida ou observação..."
-              rows={3}
-              style={{ width: '100%' }}
-              autoFocus
-            />
-            <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 4 }}>
-              Sua dúvida será enviada para o Álvaro como lembrete urgente.
+      <div className="briefing-slide">
+        {blocoAtual ? (
+          <>
+            <div className="briefing-slide-titulo">
+              {blocoAtual.emoji && <span>{blocoAtual.emoji}</span>}
+              {blocoAtual.titulo}
             </div>
+            {blocoAtual.conteudo && (
+              <div className="briefing-slide-conteudo">{blocoAtual.conteudo}</div>
+            )}
+            {blocoAtual.itens?.length > 0 && (
+              <div className="briefing-slide-itens">
+                {blocoAtual.itens.map((item, j) => (
+                  <div key={j} className="briefing-item">
+                    <span className="briefing-item-bullet">•</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="briefing-slide-final">
+            <div className="briefing-slide-titulo">Tudo entendido?</div>
+            <div className="briefing-slide-conteudo" style={{ color: 'var(--cinza-medio)', marginBottom: 24 }}>
+              Confirme que leu e compreendeu as informações do dia.
+            </div>
+            {!resposta && (
+              <div style={{ display: 'flex', gap: 12, marginBottom: 16 }}>
+                <button className="btn btn-secondary" style={{ flex: 1, padding: '12px' }} onClick={() => setResposta('sim')}>
+                  ✅ Sim, estou pronto
+                </button>
+                <button className="btn btn-secondary" style={{ flex: 1, padding: '12px' }} onClick={() => { setResposta('duvida'); setMostrarDuvida(true); }}>
+                  ❓ Tenho uma dúvida
+                </button>
+              </div>
+            )}
+            {resposta === 'sim' && (
+              <div style={{ fontSize: 13, color: 'var(--verde)', marginBottom: 16 }}>✅ Ótimo! Confirme abaixo.</div>
+            )}
+            {mostrarDuvida && (
+              <div style={{ marginBottom: 16 }}>
+                <textarea value={duvida} onChange={(e) => setDuvida(e.target.value)} placeholder="Descreva sua dúvida ou observação..." rows={3} style={{ width: '100%', marginBottom: 6 }} autoFocus />
+                <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>Será enviada ao Álvaro como lembrete urgente.</div>
+              </div>
+            )}
+            <button
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '16px', fontSize: 15, fontWeight: 700, opacity: podeConfirmarFinal && resposta ? 1 : 0.5 }}
+              disabled={!podeConfirmarFinal || !resposta || (mostrarDuvida && !duvida.trim())}
+              onClick={concluir}
+            >
+              ✅ Estou ciente — Entrar na Central
+            </button>
+            {!podeConfirmarFinal && (
+              <div style={{ fontSize: 11, color: 'var(--cinza-medio)', textAlign: 'center', marginTop: 10 }}>
+                O botão será habilitado em instantes. Leia com atenção.
+              </div>
+            )}
           </div>
         )}
-      </section>
+      </div>
 
-      <button
-        className="btn btn-primary"
-        style={{ width: '100%', padding: '14px', fontSize: 14, fontWeight: 700, opacity: podeConfirmarFinal ? 1 : 0.5 }}
-        disabled={!podeConfirmarFinal || (mostrarDuvida && !duvida.trim()) || !resposta}
-        onClick={concluir}
-      >
-        ✅ Estou ciente — Entrar na Central
-      </button>
-
-      {!podeConfirmarFinal && (
-        <div style={{ fontSize: 11, color: 'var(--cinza-medio)', textAlign: 'center', marginTop: 8 }}>
-          O botão será habilitado em instantes. Leia com atenção.
-        </div>
-      )}
+      <div className="briefing-footer">
+        <button
+          className="btn btn-secondary"
+          style={{ visibility: slideAtualBriefing > 0 ? 'visible' : 'hidden' }}
+          onClick={() => setSlideAtualBriefing((s) => s - 1)}
+        >
+          ← Anterior
+        </button>
+        {!ehUltimoBriefing && (
+          <button className="btn btn-primary" onClick={() => setSlideAtualBriefing((s) => s + 1)}>
+            Próximo →
+          </button>
+        )}
+      </div>
     </div>
   );
 }
