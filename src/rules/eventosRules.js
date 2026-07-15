@@ -695,6 +695,46 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     }
   });
 
+  // Prazo 2 de montagem: obra com montagemIniciada há 10+ dias sem finalização
+  // (diferente do prazo 1 que conta desde que entrou na etapa)
+  obras.filter((o) => o.etapa === 'montagem' && o.montagemIniciada && o.montagemIniciadaEm).forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    const diasIniciada = Math.floor((Date.now() - new Date(obra.montagemIniciadaEm).getTime()) / 86400000);
+    if (diasIniciada >= 10 && podeNotificar('montagem_parada', obraId, diasIniciada, 3)) {
+      notificar({
+        para: andre,
+        texto: `${obra.pp} — ${obra.cliente}: montagem iniciada há ${diasIniciada} dias sem conclusão. Verificar andamento.`,
+        tipo: 'urgente',
+        cor: 'var(--laranja)',
+        obraId: obra.id,
+      });
+      notificar({
+        para: alvaro,
+        texto: `${obra.pp} — ${obra.cliente}: montagem em andamento há ${diasIniciada} dias. Verificar com André.`,
+        tipo: 'urgente',
+        cor: 'var(--laranja)',
+        obraId: obra.id,
+      });
+    }
+  });
+
+  // Confirmação 1 dia após montagem agendada: verificar se está em curso
+  obras.filter((o) => o.etapa === 'montagem' && o.dataAgendada && !o.montagemIniciada).forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    const diasDesdeAgendamento = Math.floor(
+      (Date.now() - new Date(obra.dataAgendada + 'T00:00:00').getTime()) / 86400000
+    );
+    if (diasDesdeAgendamento >= 1 && podeNotificar('montagem_nao_iniciada_apos_agenda', obraId, diasDesdeAgendamento, 2)) {
+      notificar({
+        para: andre,
+        texto: `${obra.pp} — ${obra.cliente}: montagem estava agendada para ${obra.dataAgendada}. Confirme se está em andamento.`,
+        tipo: 'urgente',
+        cor: 'var(--laranja)',
+        obraId: obra.id,
+      });
+    }
+  });
+
   const producaoIniciada = obras.filter((obra) => obra.etapa === 'montagem' && obra.montagemIniciada).length;
   const montagemNaoIniciada = obras.filter((obra) => obra.etapa === 'montagem' && !obra.montagemIniciada);
   if (producaoIniciada <= 1 && montagemNaoIniciada.length > 0 && chaveUnica(`maxibell.notif.producao_baixa.${hoje}`)) {

@@ -382,3 +382,107 @@
   0%, 100% { box-shadow: 0 4px 16px rgba(192,57,43,.4); transform: scale(1); }
   50% { box-shadow: 0 4px 24px rgba(192,57,43,.7); transform: scale(1.01); }
 }
+
+/* ─── ANA — Cards e layout ─── */
+.ana-painel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.ana-col-esquerda,
+.ana-col-direita {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.urgencia-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda);
+  border-left: 4px solid var(--azul);
+  border-radius: 10px;
+  padding: 12px 14px;
+  transition: .15s;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+}
+.urgencia-item:hover {
+  box-shadow: 0 2px 8px rgba(26,58,92,.08);
+}
+.urgencia-item-tipo {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--azul);
+  font-family: 'Montserrat', sans-serif;
+}
+.urgencia-item-info {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--azul);
+}
+.urgencia-item-equipe {
+  font-size: 11px;
+  color: var(--cinza-medio);
+}
+.urgencia-item-acoes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.urgencia-tag {
+  font-size: 10px;
+  background: var(--azul-bg, #EFF6FF);
+  color: var(--azul);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-weight: 600;
+}
+.compromisso-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--cinza-claro);
+  font-size: 12px;
+  color: var(--cinza-escuro);
+}
+.compromisso-item:last-child {
+  border-bottom: none;
+}
+.tema-semana-card {
+  background: var(--cinza-claro);
+  border: 1px solid var(--cinza-borda);
+  border-radius: 10px;
+  padding: 14px;
+}
+.tema-semana-titulo {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--azul);
+  margin-bottom: 6px;
+}
+.agenda-visual-card-tipo {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--azul);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: 'Montserrat', sans-serif;
+}
+.agenda-visual-card-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--azul);
+}
+.agenda-visual-card-sub {
+  font-size: 11px;
+  color: var(--cinza-medio);
+}

@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { ETAPAS, labelEtapa } from '@/config/etapas.js';
 import { usuarioPorRole } from '@/config/usuarios.js';
@@ -82,13 +82,31 @@ export default function ObraDetalhe() {
     return obra.vhsysContramarco || obra.vhsysPedidos?.[1] || '';
   }
 
+  // Estado local para o campo VHSYS durante edição
+  const [vhsysLocal, setVhsysLocal] = React.useState({});
+
   function handleVhsysChange(campo, novoValor) {
+    // Só atualiza o estado local enquanto digita — não salva a cada tecla
+    setVhsysLocal((prev) => ({ ...prev, [campo]: novoValor }));
+  }
+
+  function handleVhsysBlur(campo) {
+    const novoValor = vhsysLocal[campo] ?? valorVhsys(campo);
     const valorAtual = valorVhsys(campo);
+    if (novoValor === valorAtual) return; // nada mudou
     if (valorAtual.trim() && novoValor !== valorAtual) {
+      // Já tinha valor — pedir confirmação ao sair do campo
       setConfirmarVhsys({ campo, novoValor, valorAtual });
       return;
     }
+    // Campo vazio sendo preenchido — salvar direto
     atualizarVhsys(obra.id, campo, novoValor);
+    setVhsysLocal((prev) => ({ ...prev, [campo]: undefined }));
+  }
+
+  function valorVhsysDisplay(campo) {
+    // Mostrar valor local enquanto edita, valor salvo quando não está editando
+    return vhsysLocal[campo] ?? valorVhsys(campo);
   }
 
   function confirmarInicioMontagem() {
@@ -146,7 +164,9 @@ export default function ObraDetalhe() {
                           className="vhsys-input"
                           placeholder="NÂº do contramarco"
                           value={valorVhsys('vhsysContramarco')}
+                          value={valorVhsysDisplay('vhsysContramarco')}
                           onChange={(e) => handleVhsysChange('vhsysContramarco', e.target.value)}
+                          onBlur={() => handleVhsysBlur('vhsysContramarco')}
                         />
                       ) : (
                         <div className="vhsys-numero">{obra.vhsysContramarco || obra.vhsysPedidos?.[1] || 'Pendente'}</div>

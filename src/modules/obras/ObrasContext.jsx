@@ -162,7 +162,7 @@ export function ObrasProvider({ children }) {
         responsavel,
         prazo: novoPrazo,
         prazoProrrogavel: false,
-        historico: [...obra.historico, evento],
+        historico: [...(obra.historico || []), evento],
       });
 
       if (responsavel) {
@@ -210,7 +210,7 @@ export function ObrasProvider({ children }) {
       responsavel,
       prazo: cronograma[destino] || prazoPorEtapa(destino, obra, agora),
       prazoProrrogavel: ['medicao_inicial', 'medicao_final'].includes(destino),
-      historico: [...obra.historico, evento],
+      historico: [...(obra.historico || []), evento],
     };
 
     if (obra.etapa === 'pedido_inicial') {
@@ -614,7 +614,7 @@ export function ObrasProvider({ children }) {
 
     atualizarObra(obraId, {
       prazo: novaData,
-      historico: [...obra.historico, evento],
+      historico: [...(obra.historico || []), evento],
     });
     gerarNotificacao({
       para: 'Álvaro',
@@ -666,7 +666,7 @@ export function ObrasProvider({ children }) {
       desc: `${dados.descricao}\nResponsável: ${dados.responsavel} | Prazo: ${dados.prazo} dias`,
       tipo: 'comentario',
     };
-    atualizarObra(obraId, { pendencia, historico: [...obra.historico, evento], responsavel: dados.responsavel });
+    atualizarObra(obraId, { pendencia, historico: [...(obra.historico || []), evento], responsavel: dados.responsavel });
     gerarNotificacao({ para: dados.responsavel, texto: `${usuario.nome} abriu pendência em ${obra.pp} - ${dados.tipo} - prazo: ${dados.prazo} dias`, tipo: 'bloqueio', cor: '#E67E22', obraId });
   }
 
@@ -675,7 +675,7 @@ export function ObrasProvider({ children }) {
     if (!obra?.pendencia?.aberta || !usuario) return;
     const agora = new Date();
     const evento = { data: formatarData(agora), hora: formatarHora(agora), usuario: usuario.nome, acao: 'Pendência resolvida', desc: observacao, tipo: 'comentario' };
-    atualizarObra(obraId, { pendencia: { ...obra.pendencia, aberta: false, resolvidaEm: agora.toISOString(), resolvidaPor: usuario.nome }, historico: [...obra.historico, evento], responsavel: 'Allana' });
+    atualizarObra(obraId, { pendencia: { ...obra.pendencia, aberta: false, resolvidaEm: agora.toISOString(), resolvidaPor: usuario.nome }, historico: [...(obra.historico || []), evento], responsavel: 'Allana' });
     gerarNotificacao({ para: 'Allana', texto: `Pendência resolvida em ${obra.pp} - pode retomar o projeto.`, tipo: 'sucesso', cor: '#27AE60', obraId });
   }
 
