@@ -912,6 +912,7 @@ export default function Dashboard() {
   );
   const [slideAtual, setSlideAtual] = useState(0);
   const [refreshAna, setRefreshAna] = useState(0);
+  const [telaConfirmacoesAna, setTelaConfirmacoesAna] = useState(false);
   const [followupsAnaAberto, setFollowupsAnaAberto] = useState(false);
   const [sugestoesManutAna, setSugestoesManutAna] = useState({});
   const [matheusAmanhaOk, setMatheusAmanhaOk] = useState(
@@ -1016,13 +1017,35 @@ export default function Dashboard() {
       const blocos = [
         {
           emoji: '🔴',
-          titulo: 'Antes de tudo',
-          itens: ['Verificar mensagens e tarefas abertas no Kommo'],
+          titulo: 'Antes de continuar',
           conteudo: (
-            <a href="https://maxibell.kommo.com" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm" style={{ display: 'inline-block', marginBottom: 8 }}>
-              Abrir Kommo →
-            </a>
+            <div>
+              <div style={{
+                background: '#FFF0F0',
+                border: '2px solid var(--vermelho)',
+                borderRadius: 10,
+                padding: '16px',
+                marginBottom: 16,
+              }}>
+                <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 15, fontWeight: 800, color: 'var(--vermelho)', marginBottom: 8 }}>
+                  VERIFIQUE AS MENSAGENS ABERTAS NO KOMMO — ONTEM E HOJE!
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--cinza-escuro)', marginBottom: 12, lineHeight: 1.5 }}>
+                  Antes de fazer qualquer outra tarefa, abra o Kommo e responda todas as mensagens pendentes de ontem e hoje.
+                </div>
+                <a
+                  href="https://maxibell.kommo.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ display: 'inline-block', padding: '10px 20px', fontWeight: 700 }}
+                >
+                  🔴 Abrir Kommo agora →
+                </a>
+              </div>
+            </div>
           ),
+          itens: [],
         },
         urgenciasAmanha.length > 0 ? {
           emoji: '📢',
@@ -1096,6 +1119,217 @@ export default function Dashboard() {
             )}
           </div>
         )}
+        {/* ── TELA DE CONFIRMAÇÕES (abre ao clicar no banner) ── */}
+        {telaConfirmacoesAna && (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 9998,
+            background: 'var(--pg-bg, #F0F4F8)',
+            display: 'flex', flexDirection: 'column',
+            overflow: 'hidden',
+          }}>
+            {/* Header */}
+            <div style={{
+              background: 'var(--vermelho)',
+              padding: '14px 20px',
+              display: 'flex', alignItems: 'center', gap: 12,
+              flexShrink: 0,
+            }}>
+              <button
+                className="btn btn-secondary btn-sm"
+                style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', color: '#fff' }}
+                onClick={() => setTelaConfirmacoesAna(false)}
+              >
+                ← Voltar
+              </button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 15, fontWeight: 800, color: '#fff' }}>
+                  Confirmar Agendamentos
+                </div>
+                <div style={{ fontSize: 11, color: 'rgba(255,255,255,.7)', marginTop: 2 }}>
+                  {manutAguardando.length} agendamento(s) aguardando confirmação do cliente
+                </div>
+              </div>
+              {/* [IA_WHATSAPP] Botão futuro: "Avisar todos via WhatsApp" */}
+            </div>
+
+            {/* Lista de cards */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 16px' }}>
+              {manutAguardando.length === 0 ? (
+                <div className="empty-state" style={{ marginTop: 60 }}>
+                  ✅ Nenhum agendamento pendente de confirmação.
+                </div>
+              ) : (
+                <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {manutAguardando.map((item) => {
+                    const sugestao = sugestoesManutAna[item.id] || {};
+                    const corTipo = item.tipo === 'Instalação' ? 'var(--azul)' : item.tipo === 'Manutenção' ? 'var(--laranja)' : 'var(--verde)';
+                    return (
+                      <div key={item.id} style={{
+                        background: 'var(--branco)',
+                        border: '1px solid var(--cinza-borda)',
+                        borderLeft: `4px solid ${corTipo}`,
+                        borderRadius: 12,
+                        padding: '16px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+                      }}>
+                        {/* Tipo + badge */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                          <span style={{
+                            background: corTipo, color: '#fff',
+                            fontSize: 10, fontWeight: 800,
+                            padding: '3px 8px', borderRadius: 4,
+                            textTransform: 'uppercase',
+                            fontFamily: 'Montserrat,sans-serif',
+                          }}>
+                            {item.tipo || 'Agendamento'}
+                          </span>
+                          <span style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>
+                            📅 {item.dataSugerida}{item.hora ? ` às ${item.hora}` : ''}
+                          </span>
+                        </div>
+
+                        {/* Dados do cliente */}
+                        <div style={{ marginBottom: 12 }}>
+                          <div style={{
+                            fontFamily: 'Montserrat,sans-serif',
+                            fontSize: 15, fontWeight: 800,
+                            color: 'var(--azul)', marginBottom: 2,
+                          }}>
+                            {item.cliente}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>
+                            {item.pp}
+                            {item.motivo && ` · ${item.motivo}`}
+                          </div>
+                        </div>
+
+                        {/* Ações */}
+                        {!sugestao.aberto ? (
+                          <div style={{ display: 'flex', gap: 8 }}>
+                            <button
+                              className="btn btn-primary"
+                              style={{ flex: 1, padding: '10px' }}
+                              onClick={() => {
+                                atualizarManutAna(
+                                  item.id,
+                                  { status: 'confirmado' },
+                                  `Ana confirmou: ${item.cliente} (${item.pp}) autorizou ${item.tipo || 'agendamento'} em ${item.dataSugerida}.`
+                                );
+                                // [IA_WHATSAPP] Hook: confirmar com o cliente via WhatsApp
+                              }}
+                            >
+                              ✅ Cliente confirmou
+                            </button>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ flex: 1, padding: '10px' }}
+                              onClick={() => setSugestoesManutAna((atual) => ({
+                                ...atual, [item.id]: { ...sugestao, aberto: true }
+                              }))}
+                            >
+                              📅 Sugere outra data
+                            </button>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ fontSize: 12, color: 'var(--cinza-medio)', marginBottom: 4 }}>
+                              Informe a nova data sugerida pelo cliente:
+                            </div>
+                            <input
+                              type="date"
+                              value={sugestao.novaData || ''}
+                              min={new Date().toISOString().slice(0, 10)}
+                              onChange={(e) => setSugestoesManutAna((atual) => ({
+                                ...atual, [item.id]: { ...sugestao, novaData: e.target.value }
+                              }))}
+                              style={{ borderRadius: 8, padding: '8px 12px', border: '1px solid var(--cinza-borda)', fontSize: 13 }}
+                            />
+                            <input
+                              placeholder="Observação do cliente (opcional)"
+                              value={sugestao.obs || ''}
+                              onChange={(e) => setSugestoesManutAna((atual) => ({
+                                ...atual, [item.id]: { ...sugestao, obs: e.target.value }
+                              }))}
+                              style={{ borderRadius: 8, padding: '8px 12px', border: '1px solid var(--cinza-borda)', fontSize: 13 }}
+                            />
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => setSugestoesManutAna((atual) => ({
+                                  ...atual, [item.id]: { ...sugestao, aberto: false }
+                                }))}
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                className="btn btn-primary"
+                                style={{ flex: 1 }}
+                                disabled={!sugestao.novaData}
+                                onClick={() => {
+                                  atualizarManutAna(
+                                    item.id,
+                                    { status: 'nova_data', novaData: sugestao.novaData, observacao: sugestao.obs || '' },
+                                    `⚠️ Cliente de ${item.pp} — ${item.cliente} sugeriu nova data para ${item.tipo || 'agendamento'}: ${sugestao.novaData}.${sugestao.obs ? ` Obs: ${sugestao.obs}` : ''} Reagendar com André.`
+                                  );
+                                  // Gerar notificação crítica para André
+                                  gerarNotificacao?.({
+                                    para: usuarioPorRole('operacional')?.nome,
+                                    texto: `⚠️ ${item.cliente} (${item.pp}) sugeriu nova data para ${item.tipo || 'agendamento'}: ${sugestao.novaData}. Reagendar.`,
+                                    tipo: 'urgente',
+                                    cor: 'var(--laranja)',
+                                    obraId: item.obraId,
+                                  });
+                                  // [IA_WHATSAPP] Hook: avisar André via WhatsApp sobre reagendamento
+                                }}
+                              >
+                                ↩ Enviar para André reagendar
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── BANNER PULSANTE DE CONFIRMAÇÕES PENDENTES ── */}
+        {temConfirmacoePendente && (
+          <div
+            style={{
+              position: 'sticky',
+              top: 0,
+              zIndex: 100,
+              background: 'var(--vermelho)',
+              color: '#fff',
+              padding: '12px 16px',
+              marginBottom: 16,
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              animation: 'pulseAna 1.5s infinite',
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(192,57,43,.4)',
+            }}
+            onClick={() => setTelaConfirmacoesAna(true)}
+          >
+            <span style={{ fontSize: 20, flexShrink: 0 }}>🔴</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, fontSize: 13, fontFamily: 'Montserrat,sans-serif' }}>
+                {manutAguardando.length} confirmação(ões) pendente(s) com o cliente
+              </div>
+              <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2 }}>
+                Toque para ver os agendamentos que precisam de confirmação
+              </div>
+            </div>
+            <span style={{ fontSize: 18 }}>↓</span>
+          </div>
+        )}
+
         <div className="flex-between mb-16">
           <div className="segmented">
             <button className={`btn btn-sm ${telaAna === 1 ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setTelaAna(1)}>Hoje</button>
@@ -1145,58 +1379,7 @@ export default function Dashboard() {
                   ))}
                 </div>
               )}
-              {manutAguardando.length > 0 && (
-                <div className="mt-16">
-                  <div className="section-titulo mb-8">🔧 Manutenções aguardando confirmação do cliente</div>
-                  {manutAguardando.map((item) => {
-                    const sugestao = sugestoesManutAna[item.id] || {};
-                    return (
-                      <div key={item.id} className="compromisso-item" style={{ alignItems: 'stretch', flexDirection: 'column', gap: 8 }}>
-                        <div>
-                          <div className="fw-700 fs-13">{item.pp} — {item.cliente}</div>
-                          <div className="fs-11 text-muted">Data sugerida: {item.dataSugerida}{item.hora ? ` às ${item.hora}` : ''}</div>
-                          {item.motivo && <div className="fs-11 text-muted">{item.motivo}</div>}
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button
-                            className="btn btn-primary btn-sm"
-                            onClick={() => atualizarManutAna(
-                              item.id,
-                              { status: 'confirmado' },
-                              `Ana confirmou: cliente de ${item.pp} autorizou manutenção em ${item.dataSugerida}.`
-                            )}
-                          >
-                            ✓ Cliente autorizou
-                          </button>
-                          <button
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => setSugestoesManutAna((atual) => ({ ...atual, [item.id]: { ...sugestao, aberto: !sugestao.aberto } }))}
-                          >
-                            📅 Sugere outra data
-                          </button>
-                        </div>
-                        {sugestao.aberto && (
-                          <div style={{ display: 'grid', gap: 8 }}>
-                            <input type="date" value={sugestao.novaData || ''} onChange={(e) => setSugestoesManutAna((atual) => ({ ...atual, [item.id]: { ...sugestao, novaData: e.target.value } }))} />
-                            <input placeholder="Observação" value={sugestao.obs || ''} onChange={(e) => setSugestoesManutAna((atual) => ({ ...atual, [item.id]: { ...sugestao, obs: e.target.value } }))} />
-                            <button
-                              className="btn btn-primary btn-sm"
-                              disabled={!sugestao.novaData}
-                              onClick={() => atualizarManutAna(
-                                item.id,
-                                { status: 'nova_data', novaData: sugestao.novaData, observacao: sugestao.obs || '' },
-                                `Cliente de ${item.pp} sugeriu nova data para manutenção: ${sugestao.novaData}. Observação: ${sugestao.obs || ''}.`
-                              )}
-                            >
-                              Enviar para André
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              {/* Confirmações movidas para tela dedicada — acessível pelo banner pulsante */}
               {followupsPendentes.length > 0 && (
                 <div className="mt-16">
                   <div className="compromisso-item" style={{ justifyContent: 'space-between' }}>
@@ -1452,11 +1635,69 @@ export default function Dashboard() {
           ) : <div className="text-muted fs-12">Nenhuma atividade programada para amanhã.</div>,
           itens: [],
         },
+        (() => {
+          const temaHoje = TEMAS_SEMANA_ANDRE[new Date().getDay()];
+          if (!temaHoje) return null;
+          return {
+            emoji: temaHoje.emoji,
+            titulo: temaHoje.titulo,
+            conteudo: (
+              <div>
+                <div style={{ fontSize: 13, color: 'var(--cinza-medio)', marginBottom: 16, fontStyle: 'italic' }}>
+                  {temaHoje.objetivo}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {temaHoje.itens.map((item, i) => (
+                    <div key={i} className="briefing-item">
+                      <span className="briefing-item-bullet">•</span>
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ),
+            itens: [],
+          };
+        })(),
         alertasCriticosAndre.length > 0 ? {
           emoji: '🚨',
           titulo: 'Alertas críticos',
-          conteudo: null,
-          itens: alertasCriticosAndre.map((alerta) => alerta.texto),
+          itens: [],
+          conteudo: (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {alertasCriticosAndre.map((alerta, i) => (
+                <div key={i} style={{
+                  background: alerta.tipo === 'critico' ? '#FFF5F5' : '#FFF8F0',
+                  border: '1px solid var(--cinza-borda)',
+                  borderLeft: `4px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : 'var(--laranja)'}`,
+                  borderRadius: 8, padding: '10px 12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: alerta.obra ? 8 : 0 }}>
+                    <span>{alerta.tipo === 'critico' ? '🔴' : '🟠'}</span>
+                    <span style={{ fontSize: 12, color: 'var(--cinza-escuro)', flex: 1 }}>{alerta.texto}</span>
+                  </div>
+                  {alerta.obra && (
+                    <div style={{
+                      background: 'var(--branco)', border: '1px solid var(--cinza-claro)',
+                      borderRadius: 6, padding: '8px 10px',
+                      display: 'flex', alignItems: 'center', gap: 10,
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
+                          {alerta.obra.pp}
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>{alerta.obra.cliente}</div>
+                        <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {alerta.obra.cidade}</div>
+                      </div>
+                      <span className={`badge ${calcPrazo(alerta.obra.prazo).classe}`} style={{ fontSize: 10 }}>
+                        {calcPrazo(alerta.obra.prazo).label}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ),
         } : null,
       ].filter(Boolean);
 
@@ -1510,22 +1751,43 @@ export default function Dashboard() {
                 {alertasCriticosAndre.map((alerta, i) => (
                   <button
                     key={i}
-                    className="obra-prio-card-novo"
                     style={{
-                      borderLeft: `4px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : alerta.tipo === 'urgente' ? 'var(--laranja)' : 'var(--azul)'}`,
-                      marginBottom: 6,
+                      display: 'flex', flexDirection: 'column', gap: 6,
+                      width: '100%', textAlign: 'left', cursor: alerta.obraId ? 'pointer' : 'default',
                       background: alerta.tipo === 'critico' ? '#FFF5F5' : alerta.tipo === 'urgente' ? '#FFF8F0' : 'var(--branco)',
-                      cursor: alerta.obraId ? 'pointer' : 'default',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8,
-                      width: '100%',
+                      border: '1px solid var(--cinza-borda)',
+                      borderLeft: `4px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : alerta.tipo === 'urgente' ? 'var(--laranja)' : 'var(--azul)'}`,
+                      borderRadius: 8, padding: '10px 12px', marginBottom: 6,
                     }}
                     onClick={() => alerta.obraId && navigate(`/obras/${alerta.obraId}`)}
                   >
-                    <span style={{ fontSize: 14 }}>{alerta.tipo === 'critico' ? '🔴' : alerta.tipo === 'urgente' ? '🟠' : '🟡'}</span>
-                    <span style={{ fontSize: 12, color: 'var(--cinza-escuro)', flex: 1, textAlign: 'left' }}>{alerta.texto}</span>
-                    {alerta.obraId && <span style={{ fontSize: 11, color: 'var(--azul)' }}>Ver →</span>}
+                    {/* Texto do alerta */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 14, flexShrink: 0 }}>
+                        {alerta.tipo === 'critico' ? '🔴' : alerta.tipo === 'urgente' ? '🟠' : '🟡'}
+                      </span>
+                      <span style={{ fontSize: 12, color: 'var(--cinza-escuro)', flex: 1 }}>{alerta.texto}</span>
+                      {alerta.obraId && <span style={{ fontSize: 11, color: 'var(--azul)', flexShrink: 0 }}>Ver →</span>}
+                    </div>
+                    {/* Card da obra se existir */}
+                    {alerta.obra && (
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: 'var(--branco)', border: '1px solid var(--cinza-claro)',
+                        borderRadius: 6, padding: '8px 10px', marginTop: 2,
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 11, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
+                            {alerta.obra.pp}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>{alerta.obra.cliente}</div>
+                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {alerta.obra.cidade}</div>
+                        </div>
+                        <span className={`badge ${calcPrazo(alerta.obra.prazo).classe}`} style={{ fontSize: 10 }}>
+                          {calcPrazo(alerta.obra.prazo).label}
+                        </span>
+                      </div>
+                    )}
                   </button>
                 ))}
               </div>
@@ -1963,32 +2225,49 @@ export default function Dashboard() {
       const ehUltimo = slideAtual === totalSlides - 1;
 
       return (
-        <div style={{ maxWidth: 640, margin: '0 auto', padding: '20px 16px' }}>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 11, fontWeight: 700, color: 'var(--cinza-medio)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>
-              {saudacaoAlvaro}, Álvaro · {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+        <div className="briefing-overlay">
+          {/* Header fixo */}
+          <div className="briefing-header">
+            <div className="briefing-header-info">
+              <span className="briefing-saudacao">{saudacaoAlvaro}, Álvaro.</span>
+              <span className="briefing-data">
+                {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </span>
             </div>
-            <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
+            <div className="briefing-progress">
               {slides.map((_, i) => (
-                <div key={i} style={{ flex: 1, height: 3, borderRadius: 2, background: i <= slideAtual ? 'var(--azul)' : 'var(--cinza-borda)', transition: 'background .2s' }} />
+                <div key={i} className={`briefing-progress-dot ${i <= slideAtual ? 'ativo' : ''}`} />
               ))}
             </div>
-            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 20, fontWeight: 800, color: 'var(--azul)' }}>{slide.titulo}</div>
-            {slide.subtitulo && <div style={{ fontSize: 12, color: 'var(--cinza-medio)', marginTop: 4 }}>{slide.subtitulo}</div>}
+            <span className="briefing-counter">{slideAtual + 1} / {totalSlides}</span>
           </div>
-          <div style={{ marginBottom: 24 }}>{slide.conteudo}</div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            {slideAtual > 0 && (
-              <button className="btn btn-secondary btn-sm" onClick={() => setSlideAtual((s) => s - 1)}>← Anterior</button>
+
+          {/* Conteúdo do slide */}
+          <div className="briefing-slide">
+            <div className="briefing-slide-titulo">{slide.titulo}</div>
+            {slide.subtitulo && (
+              <div className="briefing-slide-conteudo" style={{ color: 'var(--cinza-medio)', marginBottom: 16 }}>
+                {slide.subtitulo}
+              </div>
             )}
-            <div style={{ flex: 1 }} />
+            <div>{slide.conteudo}</div>
+          </div>
+
+          {/* Rodapé de navegação */}
+          <div className="briefing-footer">
+            <button
+              className="btn btn-secondary"
+              style={{ visibility: slideAtual > 0 ? 'visible' : 'hidden' }}
+              onClick={() => setSlideAtual((s) => s - 1)}
+            >
+              ← Anterior
+            </button>
             <span style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>{slideAtual + 1} de {totalSlides}</span>
-            <div style={{ flex: 1 }} />
             {!ehUltimo ? (
-              <button className="btn btn-primary btn-sm" onClick={() => setSlideAtual((s) => s + 1)}>Próximo →</button>
+              <button className="btn btn-primary" onClick={() => setSlideAtual((s) => s + 1)}>Próximo →</button>
             ) : (
               <button className="btn btn-primary" style={{ padding: '10px 20px', fontWeight: 700 }} onClick={concluirRadar}>
-                ✅ Estou ciente - Entrar na Central
+                ✅ Estou ciente — Entrar na Central
               </button>
             )}
           </div>

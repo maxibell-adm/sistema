@@ -725,7 +725,35 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     }
   });
 
-  if (disponivelInstalacao === 0 && chaveUnica(`maxibell.notif.sem_obras_instalacao.${hoje}`)) {
+  // Alerta: data de agendamento passou e obra não foi finalizada
+  obras.filter((o) =>
+    ['instalacao', 'entrega', 'entrega_cm', 'manutencao'].includes(o.etapa) &&
+    o.dataAgendada &&
+    new Date(o.dataAgendada) < new Date(hoje) &&
+    o.etapa !== 'finalizado'
+  ).forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    const diasPassados = Math.floor((Date.now() - new Date(obra.dataAgendada).getTime()) / 86400000);
+    if (diasPassados >= 1 && podeNotificar('agenda_vencida', obraId, diasPassados, 3)) {
+      const tipoLabel = obra.etapa === 'instalacao' ? 'Instalação' : obra.etapa === 'manutencao' ? 'Manutenção' : 'Entrega';
+      notificar({
+        para: andre,
+        texto: `${obra.pp} — ${obra.cliente}: ${tipoLabel} estava agendada para ${obra.dataAgendada} e não foi finalizada. ${diasPassados} dia(s) em atraso.`,
+        tipo: 'critico',
+        cor: 'var(--vermelho)',
+        obraId: obra.id,
+      });
+      notificar({
+        para: alvaro,
+        texto: `${obra.pp} — ${obra.cliente}: ${tipoLabel} agendada para ${obra.dataAgendada} passou sem finalização. Verificar com André.`,
+        tipo: 'critico',
+        cor: 'var(--vermelho)',
+        obraId: obra.id,
+      });
+    }
+  });
+
+    if (disponivelInstalacao === 0 && chaveUnica(`maxibell.notif.sem_obras_instalacao.${hoje}`)) {
     notificar({
       para: andre,
       texto: 'Nenhuma obra disponível para instalação no momento.',

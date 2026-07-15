@@ -3,11 +3,12 @@ import { RESPONSAVEIS_EXECUCAO } from '@/config/constantes.js';
 import { useApp } from '@/modules/layout/AppContext.jsx';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
+import { usuarioPorRole } from '@/config/usuarios.js';
 import Button from '@/modules/ui/Button.jsx';
 import Modal from '@/modules/ui/Modal.jsx';
 
 export default function ModalAgendarExecucao({ obra, tipoAtividade, onClose }) {
-  const { criarAtividade } = useApp();
+  const { criarAtividade, gerarNotificacao } = useApp();
   const { usuario } = useAuth();
   const { atualizarObra } = useObrasContext();
   const [form, setForm] = useState({
@@ -23,9 +24,15 @@ export default function ModalAgendarExecucao({ obra, tipoAtividade, onClose }) {
 
   function agendar() {
     if (!form.data || !form.responsavelExecucao) return;
+
+    // 1. Criar atividade na agenda
     criarAtividade({ ...form, criadoPor: usuario.nome, obraId: obra.id });
+
     const agora = new Date();
+
+    // 2. Salvar dataAgendada na obra + histórico
     atualizarObra(obra.id, {
+      dataAgendada: form.data,
       responsavelExecucao: form.responsavelExecucao,
       historico: [
         ...obra.historico,
@@ -39,6 +46,29 @@ export default function ModalAgendarExecucao({ obra, tipoAtividade, onClose }) {
         },
       ],
     });
+
+    // 3. Alimentar fila de confirmação da Ana
+    const tiposQueAnaConfirma = ['Instalação', 'Manutenção', 'Entrega'];
+    if (tiposQueAnaConfirma.includes(tipoAtividade)) {
+      const fila = JSON.parse(localStorage.getItem('maxibell.manutencao.aguardando_ana') || '[]');
+      fila.unshift({
+        id: `agenda-ana-${Date.now()}`,
+        pp: obra.pp,
+        cliente: obra.cliente,
+        dataSugerida: form.data,
+        hora: form.hora || '',
+        motivo: `${tipoAtividade} agendada por ${usuario.nome}`,
+        tipo: tipoAtividade,
+        obraId: obra.id,
+        status: 'aguardando',
+      });
+      localStorage.setItem('maxibell.manutencao.aguardando_ana', JSON.stringify(fila));
+
+      // 4. Notificar Ana para confirmar com o cliente
+      // [IA_WHATSAPP] Hook futuro: disparar mensagem WhatsApp/Kommo para o cliente
+      // A confirmação aparece no banner pulsante do painel da Ana — não no sino
+    }
+
     onClose();
   }
 

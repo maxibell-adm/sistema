@@ -360,3 +360,9 @@
   align-items: center;
   flex-shrink: 0;
 }
+
+/* Ana — banner pulsante de confirmações */
+@keyframes pulseAna {
+  0%, 100% { box-shadow: 0 4px 16px rgba(192,57,43,.4); transform: scale(1); }
+  50% { box-shadow: 0 4px 24px rgba(192,57,43,.7); transform: scale(1.01); }
+}
