@@ -35,6 +35,14 @@ const TEMAS_SEMANA_ANA = {
   5: { emoji: '🤝', titulo: 'Sexta — Relacionamento e Expansão', objetivo: 'Ampliar rede e coletar feedback.', itens: ['Solicitar avaliações Google / Feedback de clientes', 'Atualizar planilha de arquitetos e construtores', 'Pesquisar novos parceiros comerciais'] },
 };
 
+
+const TEMAS_SEMANA_ANDRE = {
+  1: { emoji: '📋', titulo: 'Segunda — Planejamento da Semana', objetivo: 'Iniciar a semana com tudo planejado.', itens: ['Iniciar a produção da semana', 'Conferir materiais recebidos', 'Conferir pendências de fornecedores (perfis, vidros e acessórios)'] },
+  2: { emoji: '⚙️', titulo: 'Terça — Produção e Liberação', objetivo: 'Garantir obras prontas para produção.', itens: ['Conferir grupo "Obras a Produzir"', 'Conferir e liberar obras para produção', 'Liberar contramarcos', 'Separar perfis do estoque de sobra (Estocão)', 'Consolidar lista de compras da semana'] },
+  3: { emoji: '💻', titulo: 'Quarta — Administração e VHSYS', objetivo: 'Nenhum pedido desatualizado.', itens: ['Lançar novos pedidos no VHSYS', 'Atualizar status de obras entregues e instaladas', 'Conferir grupo de instalação'] },
+  4: { emoji: '🚚', titulo: 'Quinta — Compras e Logística', objetivo: 'Compras em dia e entregas confirmadas.', itens: ['Conferir as listas de compras com a necessidade de material', 'Conferir entregas de vidro', 'Confirmar pedidos de vidro da semana'] },
+  5: { emoji: '📦', titulo: 'Sexta — Carregamento e Revisão', objetivo: 'Semana fechada e próxima planejada.', itens: ['Conferir obras para carregamento da semana seguinte', 'Revisar pendências da semana', 'Planejar instalações da próxima semana'] },
+};
 const ROTINA_DIARIA_ANDRE = [
   { id: 'r1', emoji: '📋', texto: 'Conferir relatório de pendências de material dos montadores' },
   { id: 'r2', emoji: '⏱️', texto: 'Lançar horas paradas de produção' },
