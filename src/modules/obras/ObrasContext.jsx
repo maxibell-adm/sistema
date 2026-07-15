@@ -133,7 +133,7 @@ export function ObrasProvider({ children }) {
     return nova;
   }
 
-  function avancarEtapa(obraId, novaEtapa, motivo) {
+  function avancarEtapa(obraId, novaEtapa, motivo, opcoes = {}) {
     const obra = obras.find((item) => item.id === obraId);
     if (!obra || !usuario) return { ok: false, erro: 'Obra não encontrada.' };
     if (!podeAvancarEtapa(usuario.role, obra.etapa)) return { ok: false, erro: 'Você não tem permissão para avançar esta etapa.' };
@@ -219,9 +219,30 @@ export function ObrasProvider({ children }) {
 
     if (obra.etapa === 'medicao_final' && destino === 'projeto_final') {
       const prazos = cronogramaProducao(agora);
+      const condicaoEspecialAvanco = opcoes?.condicaoEspecial;
       patch.cronograma = prazos;
       patch.prazo = prazos.projeto_final;
       patch.dataInicioProducao = agora.toISOString().slice(0, 10);
+      if (condicaoEspecialAvanco?.ativa) {
+        patch.condicaoEspecial = condicaoEspecialAvanco;
+        patch.historico = [...patch.historico, {
+          data: formatarData(agora),
+          hora: formatarHora(agora),
+          usuario: usuario.nome,
+          acao: 'Condição especial registrada',
+          desc: condicaoEspecialAvanco.texto,
+          tipo: 'condicao_especial',
+        }];
+      }
+      const condicaoParaAllana = condicaoEspecialAvanco?.ativa ? condicaoEspecialAvanco : obra.condicaoEspecial?.ativa ? obra.condicaoEspecial : null;
+      if (condicaoParaAllana) {
+        gerarNotificacao({
+          para: 'Allana',
+          texto: `⚠ ${obra.pp} - ${obra.cliente} chegou para projeto com CONDIÇÃO ESPECIAL: ${condicaoParaAllana.texto}`,
+          tipo: 'atencao',
+          obraId,
+        });
+      }
     }
 
     if (obra.etapa === 'projeto_final' && destino === 'compras') {

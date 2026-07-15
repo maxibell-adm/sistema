@@ -63,6 +63,8 @@ export default function ObraDetalhe() {
   const [modal, setModal] = useState(false);
   const [modalMontagem, setModalMontagem] = useState(false);
   const [confirmarVhsys, setConfirmarVhsys] = useState(null);
+  const [modalCondicaoEspecial, setModalCondicaoEspecial] = useState(false);
+  const [condicaoTexto, setCondicaoTexto] = useState('');
   const obra = obrasVisiveis.find((o) => o.id === id);
 
   if (!obra) return <div className="empty-state">Obra não encontrada ou sem permissão de visualização.</div>;
@@ -76,6 +78,7 @@ export default function ObraDetalhe() {
   const podeEditarVhsys = ['admin', 'operacional'].includes(usuario.role);
   const temContramarco = obra.tipo?.includes('COM CONTRAMARCO');
   const podeVerObsInterna = usuario.role === 'admin' || obra.responsavel === usuario.nome;
+  const podeRegistrarCondicaoEspecial = usuario.role === 'medicao' && obra.responsavel === usuario.nome;
 
   function valorVhsys(campo) {
     if (campo === 'vhsysEsquadria') return obra.vhsysEsquadria || obra.vhsysPedidos?.[0] || '';
@@ -83,7 +86,7 @@ export default function ObraDetalhe() {
   }
 
   // Estado local para o campo VHSYS durante edição
-  const [vhsysLocal, setVhsysLocal] = React.useState({});
+  const [vhsysLocal, setVhsysLocal] = useState({});
 
   function handleVhsysChange(campo, novoValor) {
     // Só atualiza o estado local enquanto digita — não salva a cada tecla
@@ -133,6 +136,34 @@ export default function ObraDetalhe() {
     setModalMontagem(false);
   }
 
+  function abrirModalCondicaoEspecial() {
+    setCondicaoTexto(obra.condicaoEspecial?.texto || '');
+    setModalCondicaoEspecial(true);
+  }
+
+  function salvarCondicaoEspecial() {
+    const texto = condicaoTexto.trim();
+    if (!texto) return;
+    const agora = new Date();
+    atualizarObra(obra.id, {
+      condicaoEspecial: {
+        texto,
+        registradaEm: agora.toLocaleDateString('pt-BR'),
+        registradaPor: usuario.nome,
+        ativa: true,
+      },
+      historico: [...(obra.historico || []), {
+        data: agora.toLocaleDateString('pt-BR'),
+        hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        usuario: usuario.nome,
+        acao: 'Condição especial registrada',
+        desc: texto,
+        tipo: 'condicao_especial',
+      }],
+    });
+    setModalCondicaoEspecial(false);
+  }
+
   return (
     <>
       <div className="detalhe-grid">
@@ -163,7 +194,6 @@ export default function ObraDetalhe() {
                         <input
                           className="vhsys-input"
                           placeholder="NÂº do contramarco"
-                          value={valorVhsys('vhsysContramarco')}
                           value={valorVhsysDisplay('vhsysContramarco')}
                           onChange={(e) => handleVhsysChange('vhsysContramarco', e.target.value)}
                           onBlur={() => handleVhsysBlur('vhsysContramarco')}
@@ -206,6 +236,13 @@ export default function ObraDetalhe() {
                 </span>
               )}
             </div>
+            {podeRegistrarCondicaoEspecial && (
+              <div style={{ marginTop: 12 }}>
+                <Button variant="warning" onClick={abrirModalCondicaoEspecial}>
+                  {obra.condicaoEspecial?.ativa ? '⚠ Ver / Editar Condição Especial' : '⚠ Registrar Condição Especial'}
+                </Button>
+              </div>
+            )}
             {obra.condicaoEspecial?.ativa && (
               <div className="condicao-especial-box">
                 <div className="section-titulo">Condição especial</div>
@@ -295,6 +332,27 @@ export default function ObraDetalhe() {
           <p>O número atual é <strong>{confirmarVhsys.valorAtual}</strong>.</p>
           <p className="mt-8">Tem certeza que deseja alterar para <strong>{confirmarVhsys.novoValor}</strong>?</p>
           <p className="mt-8 text-muted fs-11">Esta alteração será registrada no histórico da obra.</p>
+        </Modal>
+      )}
+      {modalCondicaoEspecial && (
+        <Modal
+          titulo="Registrar Condição Especial"
+          onClose={() => setModalCondicaoEspecial(false)}
+          footer={<><Button variant="secondary" onClick={() => setModalCondicaoEspecial(false)}>Cancelar</Button><Button variant="warning" disabled={!condicaoTexto.trim()} onClick={salvarCondicaoEspecial}>Registrar</Button></>}
+        >
+          <p className="fs-12 text-muted mb-12">
+            Registre aqui qualquer condição desta obra que a Allana precisa saber antes de projetar. Ex: puxador não definido, porta que mudou de medida, cliente com restrição de horário.
+          </p>
+          <div className="form-field full">
+            <label>Condição especial *</label>
+            <textarea
+              value={condicaoTexto}
+              onChange={(e) => setCondicaoTexto(e.target.value)}
+              placeholder="Descreva a condição especial observada nesta obra."
+              rows={5}
+              autoFocus
+            />
+          </div>
         </Modal>
       )}
     </>

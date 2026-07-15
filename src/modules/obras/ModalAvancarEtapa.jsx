@@ -73,7 +73,16 @@ export default function ModalAvancarEtapa({ obra, onClose, etapaInicial }) {
       });
     }
 
-    const res = avancarEtapa(obra.id, novaEtapa, motivoFinal);
+    const condicaoEspecialAvanco = obra.etapa === 'medicao_final' && novaEtapa === 'projeto_final' && temCondicaoEspecial && condicaoTexto.trim()
+      ? {
+          texto: condicaoTexto.trim(),
+          registradaEm: new Date().toLocaleDateString('pt-BR'),
+          registradaPor: usuario.nome,
+          ativa: true,
+        }
+      : null;
+
+    const res = avancarEtapa(obra.id, novaEtapa, motivoFinal, condicaoEspecialAvanco ? { condicaoEspecial: condicaoEspecialAvanco } : undefined);
     if (!res.ok) return setErro(res.erro);
     onClose();
   }
@@ -99,7 +108,11 @@ export default function ModalAvancarEtapa({ obra, onClose, etapaInicial }) {
       return setVerificacao('condicao-instalacao');
     }
     if (ehSaidaMontagem && verificacao !== 'vhsys-ok') return setVerificacao('vhsys');
+    if (obra.etapa === 'medicao_final' && novaEtapa === 'projeto_final' && !['condicao-final-ok', 'medicao', 'medicao-nao'].includes(verificacao)) {
+      return setVerificacao(obra.condicaoEspecial?.ativa ? 'condicao-final-existe' : 'condicao-final-pergunta');
+    }
     if (!verificacao && obra.etapa === 'medicao_final' && novaEtapa === 'projeto_final') return setVerificacao('medicao');
+    if (verificacao === 'condicao-final-ok' && obra.etapa === 'medicao_final' && novaEtapa === 'projeto_final') return setVerificacao('medicao');
     if (!verificacao && obra.etapa === 'projeto_final' && novaEtapa === 'compras') return setVerificacao('projeto');
     executarAvanco();
   }
@@ -168,6 +181,41 @@ export default function ModalAvancarEtapa({ obra, onClose, etapaInicial }) {
             <> · Pedido Contramarco: <strong>{obra.vhsysContramarco || obra.vhsysPedidos?.[1] || 'Não informado'}</strong></>
           )}
         </div>
+      </Modal>
+    );
+  }
+
+  if (verificacao === 'condicao-final-existe') {
+    return (
+      <Modal titulo="Condição Especial" onClose={onClose} footer={<><Button variant="secondary" onClick={() => { setCondicaoTexto(obra.condicaoEspecial?.texto || ''); setTemCondicaoEspecial(true); setVerificacao('condicao-final-formulario'); }}>Atualizar condição</Button><Button variant="warning" onClick={() => setVerificacao('medicao')}>Confirmar e avançar</Button></>}>
+        <div className="condicao-especial-banner">
+          <div className="condicao-especial-header"><span>CONDIÇÃO ESPECIAL REGISTRADA</span></div>
+          <div className="condicao-especial-texto">{obra.condicaoEspecial?.texto}</div>
+        </div>
+        <p className="text-muted fs-12 mt-8">Esta obra tem condição especial registrada. Confirma que está atualizada antes de passar para a Allana?</p>
+      </Modal>
+    );
+  }
+
+  if (verificacao === 'condicao-final-pergunta') {
+    return (
+      <Modal titulo="Condição Especial" onClose={onClose} footer={<><Button variant="secondary" onClick={() => setVerificacao('medicao')}>Não, pode avançar</Button><Button variant="warning" onClick={() => { setTemCondicaoEspecial(true); setCondicaoTexto(''); setVerificacao('condicao-final-formulario'); }}>Sim, registrar</Button></>}>
+        <p>Existe alguma condição especial que a Allana precisa saber antes de projetar?</p>
+        <div className="text-muted fs-12 mt-8">
+          Exemplos: puxador não definido, porta que mudou de medida, cliente com restrição de horário ou alteração que não estava nas observações iniciais.
+        </div>
+      </Modal>
+    );
+  }
+
+  if (verificacao === 'condicao-final-formulario') {
+    return (
+      <Modal titulo="Registrar Condição Especial" onClose={onClose} footer={<><Button variant="secondary" onClick={() => setVerificacao(obra.condicaoEspecial?.ativa ? 'condicao-final-existe' : 'condicao-final-pergunta')}>Voltar</Button><Button variant="warning" disabled={!condicaoTexto.trim()} onClick={() => setVerificacao('medicao')}>Registrar e avançar</Button></>}>
+        <div className="form-field full">
+          <label>Descreva a condição especial *</label>
+          <textarea value={condicaoTexto} onChange={(e) => setCondicaoTexto(e.target.value)} placeholder="Ex: puxador não definido, porta alterada, medida observada no local, restrição de horário do cliente." rows={4} autoFocus />
+        </div>
+        <div className="condicao-aviso mt-8">Esta informação ficará salva na obra, visível para Allana e registrada no histórico.</div>
       </Modal>
     );
   }

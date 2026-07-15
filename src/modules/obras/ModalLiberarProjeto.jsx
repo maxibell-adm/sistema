@@ -9,11 +9,16 @@ export default function ModalLiberarProjeto({ obra, onClose }) {
   const [obs, setObs] = useState('');
   const [nomeArquivo, setNomeArquivo] = useState('');
   const [erro, setErro] = useState('');
+  const [condicaoCiente, setCondicaoCiente] = useState(false);
   const { avancarEtapa, atualizarObra, gerarNotificacao, anexarArquivo } = useObrasContext();
   const { usuario } = useAuth();
   const operacional = usuarioPorRole('operacional')?.nome || 'Operacional';
+  const temCondicaoEspecial = obra.condicaoEspecial?.ativa === true;
 
   function confirmar() {
+    if (temCondicaoEspecial && !condicaoCiente) {
+      return setErro('Confirme que a condição especial foi verificada antes de liberar.');
+    }
     if (nomeArquivo.trim()) {
       anexarArquivo(obra.id, nomeArquivo.trim(), usuario);
     }
@@ -33,9 +38,37 @@ export default function ModalLiberarProjeto({ obra, onClose }) {
     <Modal
       titulo="Liberar Projeto para Compras"
       onClose={onClose}
-      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button variant="success" onClick={confirmar}>Liberar para Compras</Button></>}
+      footer={<><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button variant="success" disabled={temCondicaoEspecial && !condicaoCiente} onClick={confirmar}>Liberar para Compras</Button></>}
     >
       <p className="fs-13 mb-16">O projeto sera enviado para <strong>{operacional}</strong> iniciar as compras.</p>
+      {temCondicaoEspecial && (
+        <div style={{
+          background: '#FFF7ED',
+          border: '1px solid #F59E0B',
+          borderLeft: '4px solid #F59E0B',
+          borderRadius: 8,
+          padding: '12px 14px',
+          marginBottom: 16,
+        }}>
+          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 11, fontWeight: 800, color: '#92400E', textTransform: 'uppercase', marginBottom: 6 }}>
+            ⚠ Condição especial ativa
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--cinza-escuro)', marginBottom: 6 }}>
+            {obra.condicaoEspecial.texto}
+          </div>
+          <div className="fs-11 text-muted mb-10">
+            Registrada em {obra.condicaoEspecial.registradaEm || '-'} por {obra.condicaoEspecial.registradaPor || '-'}
+          </div>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: 'var(--cinza-escuro)', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={condicaoCiente}
+              onChange={(e) => { setCondicaoCiente(e.target.checked); setErro(''); }}
+            />
+            <span>Confirmo que verifiquei e contemplei esta condição especial no projeto.</span>
+          </label>
+        </div>
+      )}
       <div className="form-field full mb-16">
         <label>Anexar arquivo do projeto (recomendado)</label>
         <div className="upload-simulado">
