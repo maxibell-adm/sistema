@@ -245,6 +245,22 @@
   flex: 1;
 }
 
+/* André — Atenção agora refinado */
+.andre-atencao-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vermelho);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  padding: 0 5px;
+  font-family: 'Montserrat', sans-serif;
+}
+
 /* ─── BRIEFING OPERACIONAL — OVERLAY FULLSCREEN ─── */
 .briefing-overlay {
   position: fixed;

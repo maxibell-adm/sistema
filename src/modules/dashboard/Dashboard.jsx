@@ -229,7 +229,9 @@ function ObraOrdemAndre({ obra, mostrarCompras = false, onClick }) {
   );
 }
 
-function SecaoOrdemAndre({ titulo, obras, vazio, mostrarCompras = false, destaquePerfil = false, onObra }) {
+function SecaoOrdemAndre({ titulo, obras, vazio, mostrarCompras = false, destaquePerfil = false, hideIfEmpty = false, onObra }) {
+  if (hideIfEmpty && (!obras || obras.length === 0)) return null;
+
   return (
     <section className="andre-secao-ordem">
       <div className="andre-secao-titulo-ordem">{titulo}</div>
@@ -1463,30 +1465,70 @@ export default function Dashboard() {
     const alertasCriticosAndre = [
       ...obrasVisiveis
         .filter((o) => {
-          if (o.etapa !== 'instalacao') return false;
-          const dias = Math.floor((Date.now() - new Date(o.atualizadoEm || o.criadoEm).getTime()) / 86400000);
+          if (o.etapa !== 'instalacao' || !o.instalacaoIniciada) return false;
+          const visitas = o.visitas || [];
+          if (visitas.length > 0) return false;
+          const dias = Math.floor((Date.now() - new Date(o.instalacaoIniciadaEm || o.dataAgendada + 'T00:00:00').getTime()) / 86400000);
+          return dias >= 1;
+        })
+        .map((o) => ({
+          tipo: 'critico',
+          icone: '📋',
+          texto: `Preencher diário: ${o.pp} — ${o.cliente}`,
+          sub: 'Instalação iniciada sem registro de visita',
+          obraId: o.id,
+          obra: o,
+        })),
+      ...obrasVisiveis
+        .filter((o) =>
+          ['instalacao', 'entrega', 'entrega_cm', 'manutencao'].includes(o.etapa) &&
+          o.dataAgendada &&
+          new Date(o.dataAgendada + 'T00:00:00') < new Date() &&
+          o.etapa !== 'finalizado'
+        )
+        .map((o) => ({
+          tipo: 'critico',
+          icone: '🔴',
+          texto: `${o.pp} — ${o.cliente}`,
+          sub: `${labelEtapa(o.etapa)} agendada para ${o.dataAgendada} não foi finalizada`,
+          obraId: o.id,
+          obra: o,
+        })),
+      ...obrasVisiveis
+        .filter((o) => {
+          if (o.etapa !== 'instalacao' || !o.instalacaoIniciada) return false;
+          const ref = o.instalacaoIniciadaEm || o.atualizadoEm || o.criadoEm;
+          const dias = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
           return dias >= 10;
         })
         .map((o) => {
-          const dias = Math.floor((Date.now() - new Date(o.atualizadoEm || o.criadoEm).getTime()) / 86400000);
-          return { tipo: 'critico', texto: `${o.pp} - instalação parada há ${dias} dias sem finalização`, obraId: o.id, obra: o };
+          const ref = o.instalacaoIniciadaEm || o.atualizadoEm || o.criadoEm;
+          const dias = Math.floor((Date.now() - new Date(ref).getTime()) / 86400000);
+          return {
+            tipo: 'critico',
+            icone: '🔴',
+            texto: `${o.pp} — ${o.cliente}`,
+            sub: `Instalação parada há ${dias} dias sem finalização`,
+            obraId: o.id,
+            obra: o,
+          };
         }),
       ...(() => {
-        const ativasProducao = obrasVisiveis.filter((o) => o.etapa === 'montagem' && o.montagemIniciada);
+        const ativas = obrasVisiveis.filter((o) => o.etapa === 'montagem' && o.montagemIniciada);
         const disponiveis = obrasVisiveis.filter((o) => o.etapa === 'montagem' && !o.montagemIniciada);
-        if (ativasProducao.length <= 1 && disponiveis.length > 0) {
-          return [{ tipo: 'urgente', texto: `Produção baixa: ${ativasProducao.length} montagem ativa. ${disponiveis.length} obra(s) disponível(is) para iniciar.`, obraId: null }];
+        if (ativas.length <= 1 && disponiveis.length > 0) {
+          return [{
+            tipo: 'urgente',
+            icone: '🟠',
+            texto: `Produção baixa: ${ativas.length} montagem ativa`,
+            sub: `${disponiveis.length} obra(s) disponível(is) para iniciar`,
+            obraId: null,
+            obras: disponiveis,
+          }];
         }
         return [];
       })(),
-      ...(() => {
-        const disponiveis = obrasVisiveis.filter((o) => o.etapa === 'instalacao');
-        if (disponiveis.length === 0) {
-          return [{ tipo: 'atencao', texto: 'Nenhuma obra disponível para instalação no momento.', obraId: null }];
-        }
-        return [];
-      })(),
-    ].slice(0, 5);
+    ].slice(0, 6);
 
     function itemMarcadoHoje(id) {
       return localStorage.getItem(`maxibell.andre.rotina.${id}.${new Date().toDateString()}`) === 'true';
@@ -1536,8 +1578,8 @@ export default function Dashboard() {
       if (diaSemana === 1) {
         return (
           <>
-            <SecaoOrdemAndre titulo="Libere os contramarcos para produção" obras={obrasFabricacaoCM} vazio="✅ Nenhum contramarco aguardando produção." onObra={(obra) => navigate(`/obras/${obra.id}`)} />
-            <SecaoOrdemAndre titulo="Inicie as montagens disponíveis" obras={obrasMontagem} vazio="✅ Todas as montagens foram iniciadas." onObra={(obra) => navigate(`/obras/${obra.id}`)} />
+            <SecaoOrdemAndre titulo="Libere os contramarcos para produção" obras={obrasFabricacaoCM} vazio="✅ Nenhum contramarco aguardando." hideIfEmpty onObra={(obra) => navigate(`/obras/${obra.id}`)} />
+            <SecaoOrdemAndre titulo="Inicie as montagens disponíveis" obras={obrasMontagem} vazio="✅ Todas as montagens foram iniciadas." hideIfEmpty onObra={(obra) => navigate(`/obras/${obra.id}`)} />
           </>
         );
       }
@@ -1545,8 +1587,8 @@ export default function Dashboard() {
       if (diaSemana === 2) {
         return (
           <>
-            <SecaoOrdemAndre titulo="Confira as obras prontas para compras" obras={obrasComprasNovas} vazio="✅ Nenhuma obra nova em compras." mostrarCompras destaquePerfil onObra={(obra) => navigate(`/obras/${obra.id}`)} />
-            <SecaoOrdemAndre titulo="Compras com itens em atraso" obras={obrasComprasAtrasadas} vazio="✅ Todas as compras estão no prazo." mostrarCompras destaquePerfil onObra={(obra) => navigate(`/obras/${obra.id}`)} />
+            <SecaoOrdemAndre titulo="Confira as obras prontas para compras" obras={obrasComprasNovas} vazio="✅ Nenhuma obra nova em compras." mostrarCompras destaquePerfil hideIfEmpty onObra={(obra) => navigate(`/obras/${obra.id}`)} />
+            <SecaoOrdemAndre titulo="Compras com itens em atraso" obras={obrasComprasAtrasadas} vazio="✅ Todas as compras estão no prazo." mostrarCompras destaquePerfil hideIfEmpty onObra={(obra) => navigate(`/obras/${obra.id}`)} />
           </>
         );
       }
@@ -1746,50 +1788,83 @@ export default function Dashboard() {
 
           <div className="andre-col" style={{ flex: rotinaAndreCompleta ? 2 : 1 }}>
             {alertasCriticosAndre.length > 0 && (
-              <div style={{ marginBottom: 20 }}>
-                <div className="section-titulo mb-8">🚨 Atenção agora</div>
-                {alertasCriticosAndre.map((alerta, i) => (
-                  <button
-                    key={i}
-                    style={{
-                      display: 'flex', flexDirection: 'column', gap: 6,
-                      width: '100%', textAlign: 'left', cursor: alerta.obraId ? 'pointer' : 'default',
-                      background: alerta.tipo === 'critico' ? '#FFF5F5' : alerta.tipo === 'urgente' ? '#FFF8F0' : 'var(--branco)',
-                      border: '1px solid var(--cinza-borda)',
-                      borderLeft: `4px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : alerta.tipo === 'urgente' ? 'var(--laranja)' : 'var(--azul)'}`,
-                      borderRadius: 8, padding: '10px 12px', marginBottom: 6,
-                    }}
-                    onClick={() => alerta.obraId && navigate(`/obras/${alerta.obraId}`)}
-                  >
-                    {/* Texto do alerta */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 14, flexShrink: 0 }}>
-                        {alerta.tipo === 'critico' ? '🔴' : alerta.tipo === 'urgente' ? '🟠' : '🟡'}
-                      </span>
-                      <span style={{ fontSize: 12, color: 'var(--cinza-escuro)', flex: 1 }}>{alerta.texto}</span>
-                      {alerta.obraId && <span style={{ fontSize: 11, color: 'var(--azul)', flexShrink: 0 }}>Ver →</span>}
-                    </div>
-                    {/* Card da obra se existir */}
-                    {alerta.obra && (
-                      <div style={{
-                        display: 'flex', alignItems: 'center', gap: 10,
-                        background: 'var(--branco)', border: '1px solid var(--cinza-claro)',
-                        borderRadius: 6, padding: '8px 10px', marginTop: 2,
-                      }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 11, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
-                            {alerta.obra.pp}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>{alerta.obra.cliente}</div>
-                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {alerta.obra.cidade}</div>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  marginBottom: 12,
+                }}>
+                  <span style={{ fontSize: 16 }}>🚨</span>
+                  <span style={{
+                    fontFamily: 'Montserrat,sans-serif',
+                    fontSize: 11, fontWeight: 800,
+                    color: 'var(--vermelho)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}>
+                    Atenção agora
+                  </span>
+                  <span className="andre-atencao-badge">
+                    {alertasCriticosAndre.length}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {alertasCriticosAndre.map((alerta, i) => (
+                    <button
+                      key={i}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        width: '100%', textAlign: 'left',
+                        background: alerta.tipo === 'critico' ? '#FFF5F5' : '#FFF8F0',
+                        border: `1px solid ${alerta.tipo === 'critico' ? '#FCA5A5' : '#FCD34D'}`,
+                        borderLeft: `4px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : 'var(--laranja)'}`,
+                        borderRadius: 10, padding: '10px 14px',
+                        cursor: alerta.obraId || alerta.obras ? 'pointer' : 'default',
+                        transition: '.15s',
+                      }}
+                      onClick={() => {
+                        if (alerta.obras) {
+                          abrirListaOuObra(alerta.obras, setListaPreviaAndre, {
+                            titulo: alerta.texto,
+                            subtitulo: alerta.sub,
+                            cor: 'var(--laranja)',
+                          });
+                        } else if (alerta.obraId) {
+                          navigate(`/obras/${alerta.obraId}`);
+                        }
+                      }}
+                    >
+                      <span style={{ fontSize: 18, flexShrink: 0 }}>{alerta.icone}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--cinza-escuro)', marginBottom: 2 }}>
+                          {alerta.texto}
                         </div>
-                        <span className={`badge ${calcPrazo(alerta.obra.prazo).classe}`} style={{ fontSize: 10 }}>
-                          {calcPrazo(alerta.obra.prazo).label}
-                        </span>
+                        {alerta.sub && (
+                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>{alerta.sub}</div>
+                        )}
+                        {alerta.obra && (
+                          <div style={{
+                            marginTop: 6,
+                            display: 'flex', gap: 8, alignItems: 'center',
+                            background: 'rgba(255,255,255,.7)',
+                            borderRadius: 6, padding: '4px 8px',
+                            fontSize: 11,
+                          }}>
+                            <span style={{ fontWeight: 700, color: 'var(--azul)' }}>{alerta.obra.pp}</span>
+                            <span style={{ color: 'var(--cinza-medio)' }}>·</span>
+                            <span style={{ color: 'var(--cinza-escuro)' }}>{alerta.obra.cliente}</span>
+                            <span style={{ color: 'var(--cinza-medio)' }}>· 📍 {alerta.obra.cidade}</span>
+                            <span className={`badge ${calcPrazo(alerta.obra.prazo).classe}`} style={{ fontSize: 9, marginLeft: 'auto' }}>
+                              {calcPrazo(alerta.obra.prazo).label}
+                            </span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </button>
-                ))}
+                      {(alerta.obraId || alerta.obras) && (
+                        <span style={{ fontSize: 14, color: 'var(--cinza-medio)', flexShrink: 0 }}>›</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
             {renderCentralAndre()}
@@ -2504,7 +2579,6 @@ export default function Dashboard() {
   }
 
   if (role === 'projetos') {
-    const projetosUnicos = [...new Map([...projetosBase, ...projetosVencidos].map((obra) => [obra.id, obra])).values()];
     const ordenarProjetos = (lista) => [...lista].sort((a, b) => {
       const pa = calcPrazo(a.prazo);
       const pb = calcPrazo(b.prazo);
@@ -2514,110 +2588,254 @@ export default function Dashboard() {
       const dataB = b.prazo ? new Date(`${b.prazo}T00:00:00`).getTime() : Number.MAX_SAFE_INTEGER;
       return dataA - dataB;
     });
-    const listaProjetosAllana = filtroAllana === 'finalizados'
-      ? projetosFinalizados
-      : filtroAllana === 'ativos'
-      ? ordenarProjetos(projetosBase)
-      : ordenarProjetos(projetosUnicos);
-    const alertasAllana = [
-      projetosVencidos.length > 0
-        ? { tipo: 'critico', texto: `${projetosVencidos.length} projeto(s) com prazo ultrapassado.`, obras: projetosVencidos }
-        : null,
-      ...obrasVisiveis
-        .filter((o) => ['projeto_contramarco', 'projeto_final'].includes(o.etapa) && o.condicaoEspecial?.ativa)
-        .map((o) => ({ tipo: 'urgente', texto: `${o.pp} - condição especial: ${o.condicaoEspecial?.texto || 'verificar'}`, obraId: o.id })),
-      ...obrasVisiveis
-        .filter((o) => o.pendencia?.aberta && o.pendencia?.responsavel === usuario.nome)
-        .map((o) => ({ tipo: 'urgente', texto: `${o.pp} - pendência aberta aguardando resolução`, obraId: o.id })),
-    ].filter(Boolean).slice(0, 4);
+
+    const listaAtivos = ordenarProjetos(projetosBase);
+    const listaVencidos = ordenarProjetos(projetosVencidos);
+    const listaFinalizados = projetosFinalizados;
 
     return (
       <>
-        <div className="card card-pad mb-16">
-          {projetosVencidos.length > 0 && (
-            <div className="fs-13 mb-6" style={{ color: 'var(--vermelho)' }}>
-              ⚠ Você tem <strong>{projetosVencidos.length}</strong> projeto(s) com prazo ultrapassado.
+        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+          <div style={{
+            flex: 1,
+            background: 'var(--branco)',
+            border: '1px solid var(--cinza-borda)',
+            borderRadius: 10,
+            padding: '12px 16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 24, fontWeight: 800, color: 'var(--azul)' }}>
+              {projetosBase.length}
             </div>
-          )}
-          {projetosBase.length > 0 && (
-            <div className="fs-13 mb-6" style={{ color: 'var(--cinza-escuro)' }}>
-              📐 Você tem <strong>{projetosBase.length}</strong> projeto(s) em andamento.
+            <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>em andamento</div>
+          </div>
+          <div style={{
+            flex: 1,
+            background: projetosVencidos.length > 0 ? '#FFF5F5' : 'var(--branco)',
+            border: `1px solid ${projetosVencidos.length > 0 ? '#FCA5A5' : 'var(--cinza-borda)'}`,
+            borderRadius: 10,
+            padding: '12px 16px',
+            textAlign: 'center',
+          }}>
+            <div style={{
+              fontFamily: 'Montserrat,sans-serif',
+              fontSize: 24,
+              fontWeight: 800,
+              color: projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-medio)',
+            }}>
+              {projetosVencidos.length}
             </div>
-          )}
-          {projetosVencidos.length === 0 && projetosBase.length === 0 && alertasAllana.length === 0 && (
-            <div className="fs-13 text-muted">Tudo em dia! Nenhuma pendência no momento.</div>
-          )}
+            <div style={{ fontSize: 11, color: projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-medio)' }}>
+              vencidos
+            </div>
+          </div>
+          <div style={{
+            flex: 1,
+            background: 'var(--branco)',
+            border: '1px solid var(--cinza-borda)',
+            borderRadius: 10,
+            padding: '12px 16px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 24, fontWeight: 800, color: 'var(--verde)' }}>
+              {projetosFinalizados.length}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>finalizados</div>
+          </div>
         </div>
-        <LembretesRecebidos usuario={usuario} />
-        {alertasAllana.length > 0 && (
-          <div className="card card-pad mb-12">
-            {alertasAllana.map((alerta, i) => (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '6px 0',
-                  borderBottom: i < alertasAllana.length - 1 ? '1px solid var(--cinza-claro)' : 'none',
-                  fontSize: 13,
-                  color: alerta.tipo === 'critico' ? 'var(--vermelho)' : alerta.tipo === 'urgente' ? 'var(--laranja)' : 'var(--cinza-escuro)',
-                  cursor: alerta.obraId ? 'pointer' : 'default',
-                }}
-                onClick={() => alerta.obraId && navigate(`/obras/${alerta.obraId}`)}
-              >
-                <span>{alerta.tipo === 'critico' ? '⚠' : alerta.tipo === 'urgente' ? '🔔' : 'ℹ️'}</span>
-                <span style={{ flex: 1 }}>{alerta.texto}</span>
-                {alerta.obraId && <span style={{ fontSize: 11, color: 'var(--azul)' }}>Ver →</span>}
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+          <div>
+            <div style={{
+              fontFamily: 'Montserrat,sans-serif',
+              fontSize: 11,
+              fontWeight: 800,
+              color: 'var(--azul)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: 10,
+              paddingBottom: 6,
+              borderBottom: '2px solid var(--azul)',
+            }}>
+              Em andamento ({listaAtivos.length})
+            </div>
+            {listaAtivos.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--cinza-medio)', padding: '8px 0' }}>
+                Nenhum projeto em andamento.
               </div>
-            ))}
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {listaAtivos.map((obra) => {
+                  const prazoInfo = calcPrazo(obra.prazo);
+                  return (
+                    <button
+                      key={obra.id}
+                      onClick={() => navigate(`/obras/${obra.id}`)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        background: 'var(--branco)',
+                        border: '1px solid var(--cinza-borda)',
+                        borderLeft: '4px solid var(--azul)',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                        transition: '.15s',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                        <div>
+                          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
+                            {obra.pp}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)', marginTop: 2 }}>
+                            {obra.cliente}
+                          </div>
+                        </div>
+                        <span className={`badge ${prazoInfo.classe}`} style={{ fontSize: 9, flexShrink: 0 }}>
+                          {prazoInfo.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>
+                        {labelEtapa(obra.etapa)} · {obra.cidade}
+                      </div>
+                      {obra.condicaoEspecial?.ativa && (
+                        <span style={{
+                          background: '#FEF3C7',
+                          color: '#92400E',
+                          fontSize: 9,
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: 3,
+                          alignSelf: 'flex-start',
+                        }}>
+                          ⚠ Condição especial
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <div style={{
+              fontFamily: 'Montserrat,sans-serif',
+              fontSize: 11,
+              fontWeight: 800,
+              color: projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-medio)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px',
+              marginBottom: 10,
+              paddingBottom: 6,
+              borderBottom: `2px solid ${projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-borda)'}`,
+            }}>
+              Vencidos ({listaVencidos.length})
+            </div>
+            {listaVencidos.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--verde)', padding: '8px 0' }}>
+                ✅ Nenhum projeto vencido.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {listaVencidos.map((obra) => {
+                  const prazoInfo = calcPrazo(obra.prazo);
+                  return (
+                    <button
+                      key={obra.id}
+                      onClick={() => navigate(`/obras/${obra.id}`)}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 4,
+                        background: '#FFF5F5',
+                        border: '1px solid #FCA5A5',
+                        borderLeft: '4px solid var(--vermelho)',
+                        borderRadius: 8,
+                        padding: '10px 12px',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        width: '100%',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                        <div>
+                          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 10, fontWeight: 800, color: 'var(--vermelho)', textTransform: 'uppercase' }}>
+                            {obra.pp}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--vermelho)', marginTop: 2 }}>
+                            {obra.cliente}
+                          </div>
+                        </div>
+                        <span className="badge badge-vencido" style={{ fontSize: 9, flexShrink: 0 }}>
+                          {prazoInfo.label}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: 11, color: '#DC2626' }}>
+                        {labelEtapa(obra.etapa)} · {obra.cidade}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {projetosFinalizados.length > 0 && (
+          <div style={{ marginTop: 8 }}>
+            <details>
+              <summary style={{
+                fontSize: 12,
+                color: 'var(--cinza-medio)',
+                cursor: 'pointer',
+                padding: '8px 0',
+                listStyle: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+              }}>
+                <span>▶</span>
+                <span>{projetosFinalizados.length} projeto(s) finalizado(s)</span>
+              </summary>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+                {listaFinalizados.map((obra) => (
+                  <button
+                    key={obra.id}
+                    onClick={() => navigate(`/obras/${obra.id}`)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 10,
+                      background: 'var(--cinza-claro)',
+                      border: '1px solid var(--cinza-borda)',
+                      borderRadius: 8,
+                      padding: '8px 12px',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                      opacity: 0.7,
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--cinza-escuro)' }}>{obra.pp}</span>
+                      <span style={{ fontSize: 11, color: 'var(--cinza-medio)', marginLeft: 6 }}>{obra.cliente}</span>
+                    </div>
+                    <span className="badge badge-ok" style={{ fontSize: 9 }}>Finalizado</span>
+                  </button>
+                ))}
+              </div>
+            </details>
           </div>
         )}
-        <div className="section-hdr">
-          <div>
-            <div className="section-titulo">Fila de projetos</div>
-            <div className="text-muted fs-12">{projetosVencidos.length} vencidos · {projetosBase.length} em andamento</div>
-          </div>
-        </div>
-        <div className="filtro-pills mb-12">
-          <button className={`filtro-pill ${filtroAllana === 'todos' ? 'ativo' : ''}`} onClick={() => setFiltroAllana('todos')}>Todos</button>
-          <button className={`filtro-pill ${filtroAllana === 'ativos' ? 'ativo' : ''}`} onClick={() => setFiltroAllana('ativos')}>Em andamento</button>
-          <button className={`filtro-pill ${filtroAllana === 'finalizados' ? 'ativo' : ''}`} onClick={() => setFiltroAllana('finalizados')}>Finalizados</button>
-        </div>
-        <div style={{ display: 'grid', gap: 10 }}>
-          {listaProjetosAllana.map((obra) => {
-            const prazoInfo = calcPrazo(obra.prazo);
-            return (
-              <button
-                key={obra.id}
-                className="aviso-obra-card"
-                onClick={() => navigate(`/obras/${obra.id}`)}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr auto',
-                  gap: 8,
-                  alignItems: 'start',
-                  padding: '14px 16px',
-                  border: '1px solid var(--cinza-borda)',
-                  borderRadius: 8,
-                  background: 'var(--branco)',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
-              >
-                <div>
-                  <div className="fw-700 fs-13">{obra.pp}</div>
-                  <div className="fs-12">{obra.cliente}</div>
-                  <div className="fs-11 text-muted">{labelEtapa(obra.etapa)}</div>
-                  <div className="fs-11 text-muted">{obra.cidade}</div>
-                  {obra.condicaoEspecial?.ativa && <span className="badge badge-alerta mt-8">⚠ Condição especial</span>}
-                </div>
-                <span className={`badge ${prazoInfo.classe}`}>{prazoInfo.label}</span>
-              </button>
-            );
-          })}
-          {!listaProjetosAllana.length && <div className="empty-state">Nenhum projeto nesta fila.</div>}
-        </div>
+
+        {projetosBase.length === 0 && projetosVencidos.length === 0 && (
+          <div className="empty-state">Nenhum projeto em andamento.</div>
+        )}
       </>
     );
   }
@@ -2649,6 +2867,31 @@ export default function Dashboard() {
       .filter((a) => a.data === hojeIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo))
       .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
     const compromissosAmanha = atividadesPerfil.filter((a) => a.data === amanhaIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo));
+    const comunicacoesMatheus = [
+      ...atividadesPerfil
+        .filter((a) =>
+          (a.data === amanhaIso || a.data === hojeIso) &&
+          (a.responsavelExecucao === usuario.nome || a.responsavel === usuario.nome) &&
+          ['Instalação', 'Medição Inicial', 'Medição Final', 'Reunião Comercial'].includes(a.tipo) &&
+          a.criadoPor && a.criadoPor !== usuario.nome
+        )
+        .map((a) => ({
+          de: a.criadoPor,
+          texto: `${a.criadoPor} agendou: ${a.tipo} de ${a.pp ? `${a.pp} — ` : ''}${a.cliente} para ${a.data === hojeIso ? 'hoje' : 'amanhã'}${a.hora ? ` às ${a.hora}` : ''}`,
+          obraId: a.obraId,
+          tipo: 'agenda',
+        })),
+      ...obrasVisiveis
+        .filter((o) => o.pendencia?.aberta && o.pendencia?.responsavel === usuario.nome)
+        .map((o) => ({
+          de: o.pendencia.solicitadoPor || 'Sistema',
+          texto: `${o.pendencia.solicitadoPor || 'Allana'} solicita: ${o.pendencia.tipo} — ${o.pp}`,
+          obraId: o.id,
+          tipo: 'pendencia',
+          pp: o.pp,
+          cliente: o.cliente,
+        })),
+    ].slice(0, 5);
 
     if (!briefingMathFeito) {
       const blocos = [
@@ -2706,86 +2949,261 @@ export default function Dashboard() {
     return (
       <>
         <LembretesRecebidos usuario={usuario} />
-        <div className="kanban-matheus" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div className="kanban-col-matheus">
-            <div className="kanban-col-header-matheus laranja">O que fazer hoje</div>
-            {LEMBRETES_FIXOS_MATHEUS.map((item) => (
-              <CompromissoCheck
-                key={item.id}
-                item={{
-                  id: `matheus-${item.id}`,
-                  texto: item.titulo,
-                  descricao: item.descricao,
-                  storageKey: `maxibell.matheus.fixas.${item.id}.${hojeLocal}`,
-                }}
-              />
-            ))}
-
-            {alertasMatheus.length > 0 && (
-              <div className="mt-16">
-                <div className="section-titulo mb-8">⚠️ Pendências urgentes</div>
-                {alertasMatheus.map((alerta, i) => (
-                  <button
-                    key={i}
-                    className="kanban-card-matheus"
-                    style={{
-                      border: `1px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : alerta.tipo === 'urgente' ? 'var(--laranja)' : 'var(--cinza-borda)'}`,
-                      borderLeft: `4px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : alerta.tipo === 'urgente' ? 'var(--laranja)' : 'var(--azul)'}`,
-                      cursor: alerta.obraId ? 'pointer' : 'default',
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{
+              background: 'var(--branco)',
+              border: '1px solid var(--cinza-borda)',
+              borderRadius: 12,
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                background: 'var(--azul)', color: '#fff',
+                padding: '10px 16px',
+                fontFamily: 'Montserrat,sans-serif',
+                fontSize: 11, fontWeight: 800,
+                textTransform: 'uppercase', letterSpacing: '0.5px',
+              }}>
+                O que fazer hoje
+              </div>
+              <div style={{ padding: '8px 0' }}>
+                {LEMBRETES_FIXOS_MATHEUS.map((item) => (
+                  <CompromissoCheck
+                    key={item.id}
+                    item={{
+                      id: `matheus-${item.id}`,
+                      texto: item.titulo,
+                      descricao: item.descricao,
+                      storageKey: `maxibell.matheus.fixas.${item.id}.${hojeLocal}`,
                     }}
-                    onClick={() => alerta.obraId && navigate(`/obras/${alerta.obraId}`)}
-                  >
-                    <span>{alerta.tipo === 'critico' ? '🔴' : alerta.tipo === 'urgente' ? '🟠' : '🟡'}</span>
-                    <div className="fw-700 fs-12">{alerta.texto}</div>
-                  </button>
+                  />
                 ))}
+              </div>
+            </div>
+
+            {manutTriagem.length > 0 && (
+              <div style={{
+                background: 'var(--branco)',
+                border: '1px solid var(--cinza-borda)',
+                borderLeft: '4px solid var(--laranja)',
+                borderRadius: 12, padding: '14px 16px',
+              }}>
+                <div style={{
+                  fontFamily: 'Montserrat,sans-serif', fontSize: 11,
+                  fontWeight: 800, color: 'var(--laranja)',
+                  textTransform: 'uppercase', letterSpacing: '0.5px',
+                  marginBottom: 10,
+                }}>
+                  🔧 Manutenções para triagem ({manutTriagem.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {manutTriagem.map((obra) => (
+                    <button
+                      key={obra.id}
+                      onClick={() => navigate(`/obras/${obra.id}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: '#FFF8F0', border: '1px solid #FCD34D',
+                        borderRadius: 8, padding: '8px 10px',
+                        cursor: 'pointer', textAlign: 'left', width: '100%',
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>
+                          {obra.pp} — {obra.cliente}
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {obra.cidade}</div>
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--laranja)', fontWeight: 700 }}>Triar →</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
 
-            {manutTriagem.length > 0 && (
-              <div className="mt-16">
-                <div className="section-titulo mb-8">Manutenções para triagem</div>
-                {manutTriagem.map((obra) => (
-                  <div key={obra.id} className="kanban-card-matheus">
-                    <span className="badge badge-alerta">Aguardando triagem</span>
-                    <div className="fw-700 fs-12">{obra.pp} — {obra.cliente}</div>
-                    <div className="text-muted fs-11">📍 {obra.cidade}</div>
-                    <button className="btn btn-primary btn-sm mt-8" onClick={() => navigate(`/obras/${obra.id}`)}>Fazer triagem</button>
-                  </div>
-                ))}
+            {comunicacoesMatheus.length > 0 && (
+              <div style={{
+                background: 'var(--branco)',
+                border: '1px solid var(--cinza-borda)',
+                borderLeft: '4px solid var(--azul)',
+                borderRadius: 12, padding: '14px 16px',
+              }}>
+                <div style={{
+                  fontFamily: 'Montserrat,sans-serif', fontSize: 11,
+                  fontWeight: 800, color: 'var(--azul)',
+                  textTransform: 'uppercase', letterSpacing: '0.5px',
+                  marginBottom: 10,
+                }}>
+                  💬 Comunicações
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {comunicacoesMatheus.map((com, i) => (
+                    <button
+                      key={i}
+                      onClick={() => com.obraId && navigate(`/obras/${com.obraId}`)}
+                      style={{
+                        display: 'flex', alignItems: 'flex-start', gap: 10,
+                        background: com.tipo === 'pendencia' ? '#FFF5F5' : 'var(--azul-bg, #EFF6FF)',
+                        border: `1px solid ${com.tipo === 'pendencia' ? '#FCA5A5' : 'var(--azul-claro)'}`,
+                        borderRadius: 8, padding: '10px 12px',
+                        cursor: com.obraId ? 'pointer' : 'default',
+                        textAlign: 'left', width: '100%',
+                      }}
+                    >
+                      <span style={{ fontSize: 14, flexShrink: 0 }}>
+                        {com.tipo === 'pendencia' ? '⚠️' : '📅'}
+                      </span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, color: 'var(--cinza-escuro)', lineHeight: 1.4 }}>
+                          {com.texto}
+                        </div>
+                        {com.pp && (
+                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 3 }}>
+                            {com.pp} · {com.cliente}
+                          </div>
+                        )}
+                      </div>
+                      {com.obraId && <span style={{ fontSize: 13, color: 'var(--cinza-medio)' }}>›</span>}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </div>
 
-          <div className="kanban-col-matheus">
-            <div className="kanban-col-header-matheus azul">Medições e Agenda</div>
-            <div className="section-titulo mb-8">Medição inicial em aberto</div>
-            {medicaoAberta ? (
-              <div className="kanban-card-matheus" onClick={() => navigate(`/obras/${medicaoAberta.id}`)}>
-                <span className={`badge ${calcPrazo(medicaoAberta.prazo).classe}`}>{calcPrazo(medicaoAberta.prazo).label}</span>
-                <div className="fw-700 fs-12">{medicaoAberta.pp} — {medicaoAberta.cliente}</div>
-                <div className="text-muted fs-11">📍 {medicaoAberta.cidade}</div>
-                <button className="btn btn-secondary btn-sm mt-8">Ver obra</button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{
+              background: 'var(--branco)',
+              border: '1px solid var(--cinza-borda)',
+              borderRadius: 12, overflow: 'hidden',
+            }}>
+              <div style={{
+                background: 'var(--azul)', color: '#fff',
+                padding: '10px 16px',
+                fontFamily: 'Montserrat,sans-serif',
+                fontSize: 11, fontWeight: 800,
+                textTransform: 'uppercase', letterSpacing: '0.5px',
+              }}>
+                Compromissos externos de hoje
               </div>
-            ) : (
-              <div className="empty-state">✅ Nenhuma medição inicial em aberto.</div>
+              <div style={{ padding: '12px 16px' }}>
+                {compromissosExternos.length ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {compromissosExternos.map((a) => (
+                      <button
+                        key={a.id}
+                        onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          background: 'var(--cinza-claro)', border: '1px solid var(--cinza-borda)',
+                          borderLeft: `4px solid ${a.tipo === 'Reunião Comercial' ? 'var(--laranja)' : 'var(--azul)'}`,
+                          borderRadius: 8, padding: '10px 12px',
+                          cursor: 'pointer', textAlign: 'left', width: '100%',
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 3 }}>
+                            <span style={{
+                              background: a.tipo === 'Reunião Comercial' ? 'var(--laranja)' : 'var(--azul)',
+                              color: '#fff', fontSize: 9, fontWeight: 800,
+                              padding: '2px 6px', borderRadius: 3,
+                              textTransform: 'uppercase',
+                            }}>
+                              {a.tipo}
+                            </span>
+                            {a.hora && <span style={{ fontSize: 11, color: 'var(--azul)', fontWeight: 700 }}>🕐 {a.hora}</span>}
+                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>
+                            {a.pp ? `${a.pp} — ` : ''}{a.cliente}
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {a.cidade}</div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 12, color: 'var(--cinza-medio)', padding: '8px 0' }}>
+                    Nenhum compromisso externo hoje.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {medicaoAberta && (
+              <button
+                onClick={() => navigate(`/obras/${medicaoAberta.id}`)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 12,
+                  background: 'var(--branco)', border: '1px solid var(--cinza-borda)',
+                  borderLeft: '4px solid var(--azul)', borderRadius: 12,
+                  padding: '14px 16px', cursor: 'pointer', textAlign: 'left', width: '100%',
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase', marginBottom: 4 }}>
+                    Medição inicial em aberto
+                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--azul)' }}>
+                    {medicaoAberta.pp} — {medicaoAberta.cliente}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {medicaoAberta.cidade}</div>
+                </div>
+                <span className={`badge ${calcPrazo(medicaoAberta.prazo).classe}`}>
+                  {calcPrazo(medicaoAberta.prazo).label}
+                </span>
+              </button>
             )}
 
-            <div className="section-titulo mt-16 mb-8">Compromissos externos de hoje</div>
-            {compromissosExternos.map((a) => (
-              <div className="kanban-card-matheus" key={a.id} onClick={() => a.obraId && navigate(`/obras/${a.obraId}`)}>
-                <span className={`badge ${a.tipo === 'Reunião Comercial' ? 'badge-alerta' : 'badge-info'}`}>{a.tipo}</span>
-                <div className="fw-700 fs-12">{a.pp ? `${a.pp} — ` : ''}{a.cliente}</div>
-                <div className="text-muted fs-11">📍 {a.cidade}</div>
-                {a.hora && <div className="fs-11" style={{ color: 'var(--azul-claro)' }}>🕐 {a.hora}</div>}
+            {alertasMatheus.length > 0 && (
+              <div style={{
+                background: 'var(--branco)',
+                border: '1px solid #FCA5A5',
+                borderLeft: '4px solid var(--vermelho)',
+                borderRadius: 12, padding: '14px 16px',
+              }}>
+                <div style={{
+                  fontFamily: 'Montserrat,sans-serif', fontSize: 11,
+                  fontWeight: 800, color: 'var(--vermelho)',
+                  textTransform: 'uppercase', letterSpacing: '0.5px',
+                  marginBottom: 10,
+                }}>
+                  ⚡ Pendências urgentes
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {alertasMatheus.map((alerta, i) => (
+                    <button
+                      key={i}
+                      onClick={() => alerta.obraId && navigate(`/obras/${alerta.obraId}`)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 10,
+                        background: alerta.tipo === 'critico' ? '#FFF5F5' : '#FFF8F0',
+                        border: `1px solid ${alerta.tipo === 'critico' ? '#FCA5A5' : '#FCD34D'}`,
+                        borderLeft: `3px solid ${alerta.tipo === 'critico' ? 'var(--vermelho)' : 'var(--laranja)'}`,
+                        borderRadius: 8, padding: '8px 10px',
+                        cursor: alerta.obraId ? 'pointer' : 'default',
+                        textAlign: 'left', width: '100%',
+                      }}
+                    >
+                      <span style={{ fontSize: 14 }}>
+                        {alerta.tipo === 'critico' ? '🔴' : '🟠'}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--cinza-escuro)', flex: 1 }}>
+                        {alerta.texto}
+                      </span>
+                      {alerta.obraId && <span style={{ fontSize: 13, color: 'var(--cinza-medio)' }}>›</span>}
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
-            {!compromissosExternos.length && <div className="empty-state">Nenhum compromisso externo hoje.</div>}
+            )}
 
             {new Date().getHours() >= 14 && compromissosAmanha.length > 0 && !matheusAmanhaOk && (
-              <div style={{ background: '#FEF3C7', border: '1px solid #F59E0B', borderRadius: 8, padding: '10px 14px', marginTop: 16 }}>
-                <div className="fs-13 mb-8" style={{ color: '#92400E' }}>
-                  Você tem {compromissosAmanha.length} atividade(s) amanhã. Está preparado?
+              <div style={{
+                background: '#FEF3C7', border: '1px solid #F59E0B',
+                borderRadius: 12, padding: '14px 16px',
+              }}>
+                <div style={{ fontSize: 13, color: '#92400E', marginBottom: 10, fontWeight: 600 }}>
+                  📅 Você tem {compromissosAmanha.length} atividade(s) amanhã. Está preparado?
                 </div>
                 <button
                   className="btn btn-secondary btn-sm"
@@ -2794,7 +3212,7 @@ export default function Dashboard() {
                     setMatheusAmanhaOk(true);
                   }}
                 >
-                  Sim
+                  Sim, estou pronto
                 </button>
               </div>
             )}

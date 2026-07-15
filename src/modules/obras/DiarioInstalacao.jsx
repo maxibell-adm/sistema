@@ -14,7 +14,7 @@ const TIPOS_OCORRENCIA = [
 
 export default function DiarioInstalacao({ obra }) {
   const { usuario } = useAuth();
-  const { abrirOcorrencia, registrarVisitaInstalacao } = useObrasContext();
+  const { abrirOcorrencia, registrarVisitaInstalacao, atualizarObra } = useObrasContext();
   const [modalOcorrencia, setModalOcorrencia] = useState(false);
   const [modalVisita, setModalVisita] = useState(false);
 
@@ -139,7 +139,16 @@ export default function DiarioInstalacao({ obra }) {
       {modalVisita && (
         <ModalRegistrarVisita
           obra={obra}
-          onConfirmar={(dados) => { registrarVisitaInstalacao(obra.id, dados, usuario); setModalVisita(false); }}
+          onConfirmar={(dados) => {
+            registrarVisitaInstalacao(obra.id, dados, usuario);
+            if (!obra.instalacaoIniciada) {
+              atualizarObra(obra.id, {
+                instalacaoIniciada: true,
+                instalacaoIniciadaEm: new Date().toISOString(),
+              });
+            }
+            setModalVisita(false);
+          }}
           onClose={() => setModalVisita(false)}
         />
       )}

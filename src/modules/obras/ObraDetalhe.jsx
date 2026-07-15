@@ -214,94 +214,32 @@ export default function ObraDetalhe() {
           <div className="detail-section"><ProximaAcao obra={obra} onAvancar={() => setModal(true)} /></div>
           {obra.etapa === 'instalacao' && (
             <>
-              {/* ── PASSO 1: PRONTA PARA INSTALAÇÃO (não iniciada) ── */}
-              {!obra.instalacaoIniciada && (
-                <section className="detail-section card card-pad" style={{
-                  borderLeft: '4px solid var(--azul)',
-                  textAlign: 'center',
-                  padding: '32px 24px',
+              {!obra.dataAgendada && (
+                <div style={{
+                  background: '#FEF3C7', border: '1px solid #F59E0B',
+                  borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+                  fontSize: 13, color: '#92400E', display: 'flex', gap: 8, alignItems: 'center',
                 }}>
-                  <div style={{ fontSize: 32, marginBottom: 12 }}>🔨</div>
-                  <div style={{
-                    fontFamily: 'Montserrat,sans-serif',
-                    fontSize: 16, fontWeight: 800,
-                    color: 'var(--azul)', marginBottom: 8,
-                  }}>
-                    Pronta para Instalação
-                  </div>
-                  <div style={{ fontSize: 13, color: 'var(--cinza-medio)', marginBottom: 20 }}>
-                    Confirme que a equipe está no local antes de iniciar o registro de instalação.
-                  </div>
-                  {['admin', 'operacional'].includes(usuario.role) && (
-                    <Button
-                      variant="primary"
-                      onClick={() => {
-                        const agora = new Date();
-                        atualizarObra(obra.id, {
-                          instalacaoIniciada: true,
-                          instalacaoIniciadaEm: agora.toISOString(),
-                          historico: [...(obra.historico || []), {
-                            data: agora.toLocaleDateString('pt-BR'),
-                            hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-                            usuario: usuario.nome,
-                            acao: 'Instalação iniciada',
-                            desc: 'Equipe confirmada no local. Instalação iniciada.',
-                            tipo: 'etapa',
-                          }],
-                        });
-                        gerarNotificacao({
-                          para: usuarioPorRole('admin')?.nome,
-                          texto: `Instalação iniciada: ${obra.pp} — ${obra.cliente}. Equipe no local.`,
-                          tipo: 'info',
-                          cor: '#27AE60',
-                          obraId: obra.id,
-                        });
-                      }}
-                    >
-                      ▶ Iniciar Instalação
-                    </Button>
-                  )}
-                </section>
+                  ⚠️ Instalação ainda sem data agendada. Use o botão Agendar para definir a data.
+                </div>
               )}
-
-              {/* ── PASSO 2: INICIADA — mostrar status + botão Agendar ── */}
+              {obra.dataAgendada && !obra.instalacaoIniciada && (
+                <div style={{
+                  background: '#F0FDF4', border: '1px solid var(--verde)',
+                  borderRadius: 8, padding: '10px 14px', marginBottom: 12,
+                  fontSize: 13, color: 'var(--verde)', display: 'flex', gap: 8, alignItems: 'center',
+                }}>
+                  ✅ Instalação agendada para {obra.dataAgendada}. Preencha o diário ao iniciar no local.
+                </div>
+              )}
               {obra.instalacaoIniciada && (
-                <>
-                  <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span className="badge badge-ok">
-                      ✅ Instalação iniciada em {new Date(obra.instalacaoIniciadaEm).toLocaleDateString('pt-BR')}
-                    </span>
-                    {!obra.dataAgendada && ['admin', 'operacional'].includes(usuario.role) && (
-                      <span style={{ fontSize: 12, color: 'var(--laranja)', fontWeight: 600 }}>
-                        ⚠ Agendamento pendente
-                      </span>
-                    )}
-                    {obra.dataAgendada && (
-                      <span style={{ fontSize: 12, color: 'var(--verde)' }}>
-                        📅 Agendada para {obra.dataAgendada}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* ── PASSO 3: DIÁRIO só após iniciada E agendada ── */}
-                  {obra.dataAgendada
-                    ? <DiarioInstalacao obra={obra} />
-                    : (
-                      <section className="detail-section card card-pad" style={{
-                        borderLeft: '4px solid var(--laranja)',
-                        textAlign: 'center', padding: '24px',
-                      }}>
-                        <div style={{ fontSize: 13, color: 'var(--cinza-medio)', marginBottom: 12 }}>
-                          Agende a data de instalação para liberar o diário de visitas e ocorrências.
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>
-                          Use o botão "Agendar" no topo da página para definir a data.
-                        </div>
-                      </section>
-                    )
-                  }
-                </>
+                <div style={{ marginBottom: 8 }}>
+                  <span className="badge badge-ok">
+                    ✅ Instalação em andamento desde {new Date(obra.instalacaoIniciadaEm).toLocaleDateString('pt-BR')}
+                  </span>
+                </div>
               )}
+              <DiarioInstalacao obra={obra} />
             </>
           )}
           <ChecklistCompras obra={obra} />

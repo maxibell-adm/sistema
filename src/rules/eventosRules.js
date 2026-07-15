@@ -571,7 +571,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       });
     }
 
-    if (obra.etapa === 'instalacao' && (!obra.visitas || obra.visitas.length === 0) && diasNaEtapa > 3 && podeNotificar('sem_visita', obraId, diasNaEtapa, 4)) {
+    if (obra.etapa === 'instalacao' && obra.instalacaoIniciada && (!obra.visitas || obra.visitas.length === 0) && diasNaEtapa > 3 && podeNotificar('sem_visita', obraId, diasNaEtapa, 4)) {
       const texto = `${obra.pp}: instalação iniciada há ${diasNaEtapa} dias sem nenhuma visita registrada`;
       notificar({ para: andre, texto, tipo: 'urgente', obraId });
       notificar({ para: alvaro, texto, tipo: 'urgente', obraId });
@@ -748,6 +748,24 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         texto: `${obra.pp} — ${obra.cliente}: ${tipoLabel} agendada para ${obra.dataAgendada} passou sem finalização. Verificar com André.`,
         tipo: 'critico',
         cor: 'var(--vermelho)',
+        obraId: obra.id,
+      });
+    }
+  });
+
+  obras.filter((o) =>
+    o.etapa === 'instalacao' && o.dataAgendada && !o.instalacaoIniciada
+  ).forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    const diasDesdeAgendamento = Math.floor(
+      (Date.now() - new Date(`${obra.dataAgendada}T00:00:00`).getTime()) / 86400000
+    );
+    if (diasDesdeAgendamento >= 1 && podeNotificar('diario_pendente', obraId, diasDesdeAgendamento, 2)) {
+      notificar({
+        para: andre,
+        texto: `${obra.pp} — ${obra.cliente}: instalação agendada para ${obra.dataAgendada}. Preencha o diário de obra.`,
+        tipo: 'urgente',
+        cor: 'var(--laranja)',
         obraId: obra.id,
       });
     }
