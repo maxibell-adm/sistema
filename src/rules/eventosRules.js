@@ -670,6 +670,62 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     notificar({ para: alvaro, texto: 'Nenhuma instalação agendada para os próximos 3 dias.', tipo: 'aviso', obraId: null });
   }
 
+  obras.forEach((obra) => {
+    const obraId = obra.id || obra.pp;
+    if (obra.etapa === 'instalacao') {
+      const diasNaEtapa = Math.floor((Date.now() - new Date(obra.atualizadoEm || obra.criadoEm).getTime()) / 86400000);
+      if (diasNaEtapa >= 10 && podeNotificar('instalacao_parada', obraId, diasNaEtapa, 3)) {
+        notificar({
+          para: andre,
+          texto: `${obra.pp} — ${obra.cliente}: instalação parada há ${diasNaEtapa} dias sem finalização.`,
+          tipo: 'critico',
+          cor: 'var(--vermelho)',
+          obraId,
+        });
+        notificar({
+          para: alvaro,
+          texto: `${obra.pp}: instalação parada há ${diasNaEtapa} dias. Verificar com André.`,
+          tipo: 'urgente',
+          cor: 'var(--vermelho)',
+          obraId,
+        });
+      }
+    }
+  });
+
+  const producaoIniciada = obras.filter((obra) => obra.etapa === 'montagem' && obra.montagemIniciada).length;
+  const montagemNaoIniciada = obras.filter((obra) => obra.etapa === 'montagem' && !obra.montagemIniciada);
+  if (producaoIniciada <= 1 && montagemNaoIniciada.length > 0 && chaveUnica(`maxibell.notif.producao_baixa.${hoje}`)) {
+    notificar({
+      para: andre,
+      texto: `Produção baixa: apenas ${producaoIniciada} montagem em andamento. ${montagemNaoIniciada.length} obra(s) disponíveis para iniciar.`,
+      tipo: 'urgente',
+      cor: 'var(--laranja)',
+    });
+    notificar({
+      para: alvaro,
+      texto: `Fábrica com produção baixa: ${producaoIniciada} montagem ativa, ${montagemNaoIniciada.length} disponível(is).`,
+      tipo: 'urgente',
+      cor: 'var(--laranja)',
+    });
+  }
+
+  const disponivelInstalacao = obras.filter((obra) => obra.etapa === 'instalacao').length;
+  if (disponivelInstalacao === 0 && chaveUnica(`maxibell.notif.sem_obras_instalacao.${hoje}`)) {
+    notificar({
+      para: andre,
+      texto: 'Nenhuma obra disponível para instalação no momento.',
+      tipo: 'atencao',
+      cor: 'var(--azul)',
+    });
+    notificar({
+      para: alvaro,
+      texto: 'Fila de instalação vazia — nenhuma obra disponível.',
+      tipo: 'atencao',
+      cor: 'var(--azul)',
+    });
+  }
+
   // Notificar Alvaro as 9h+ se alguem nao leu o briefing
   const horaAgora = new Date().getHours();
   if (horaAgora >= 9) {

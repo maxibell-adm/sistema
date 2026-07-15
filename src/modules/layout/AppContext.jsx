@@ -97,6 +97,18 @@ export function AppProvider({ children }) {
     persistirNotificacoes(atualizadas);
   }
 
+  function marcarTratada(id) {
+    const atualizadas = notificacoes.map((n) =>
+      n.id === id ? { ...n, nova: false, lida: true, tratada: true, tratadaEm: new Date().toISOString() } : n
+    );
+    persistirNotificacoes(atualizadas);
+  }
+
+  function limparTratadas() {
+    const atualizadas = notificacoes.filter((n) => !n.tratada);
+    persistirNotificacoes(atualizadas);
+  }
+
   function limparNotificacoesLidas() {
     const atualizadas = notificacoes.filter((n) => !n.lida);
     persistirNotificacoes(atualizadas);
@@ -120,6 +132,8 @@ export function AppProvider({ children }) {
       gerarNotificacao,
       marcarNotificacoesLidas,
       marcarUmaLida,
+      marcarTratada,
+      limparTratadas,
       limparNotificacoesLidas,
       criarAtividade,
       atualizarAtividade,

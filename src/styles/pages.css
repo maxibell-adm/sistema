@@ -127,3 +127,120 @@
 .btn-radar-area b{font-family:'Montserrat',sans-serif;font-size:13px;color:var(--azul)}
 .btn-radar-area small{font-size:11px;color:var(--cinza-medio)}
 .lista-previa-wrap{max-width:680px;margin:0 auto;padding:16px}
+
+/* André — coluna de lembretes pessoais */
+.andre-lembretes-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.andre-lembrete-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--cinza-claro);
+  font-size: 12px;
+  color: var(--cinza-escuro);
+}
+.andre-lembrete-check {
+  width: 16px;
+  height: 16px;
+  border: 1.5px solid var(--cinza-borda);
+  border-radius: 3px;
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  transition: .15s;
+}
+.andre-lembrete-check:hover {
+  border-color: var(--verde);
+  background: var(--verde-claro, #DCFCE7);
+}
+
+/* André — seções temáticas da coluna central */
+.andre-secao-ordem {
+  margin-bottom: 20px;
+}
+.andre-secao-titulo-ordem {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--azul);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid var(--azul);
+}
+.andre-obras-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.andre-obra-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: .15s;
+}
+.andre-obra-card:hover {
+  box-shadow: 0 2px 8px rgba(26,58,92,.08);
+  border-color: var(--azul-claro);
+}
+.andre-obra-pp {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--cinza-medio);
+  text-transform: uppercase;
+}
+.andre-obra-cliente {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--azul);
+}
+.andre-obra-cidade {
+  font-size: 11px;
+  color: var(--cinza-medio);
+}
+.andre-sexta-contador {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--branco);
+  border: 1px solid var(--cinza-borda);
+  border-radius: 8px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: .15s;
+  margin-bottom: 6px;
+}
+.andre-sexta-contador:hover {
+  border-color: var(--azul);
+}
+.andre-sexta-num {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  min-width: 32px;
+  text-align: center;
+}
+.andre-sexta-desc {
+  font-size: 12px;
+  color: var(--cinza-escuro);
+  flex: 1;
+}

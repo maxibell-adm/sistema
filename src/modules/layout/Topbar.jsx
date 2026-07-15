@@ -19,12 +19,15 @@ const TITULOS = {
 export default function Topbar() {
   const [searchAberto, setSearchAberto] = useState(false);
   const [notifAberto, setNotifAberto] = useState(false);
-  const { notificacoes, marcarNotificacoesLidas, marcarUmaLida, limparNotificacoesLidas } = useApp();
+  const { notificacoes, marcarNotificacoesLidas, marcarUmaLida, limparNotificacoesLidas, marcarTratada, limparTratadas } = useApp();
   const { usuario } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const novas = notificacoes.filter((n) => n.nova).length;
-  const naoLidas = notificacoes.filter((n) => !n.lida).length;
+  const TIPOS_OPERACIONAIS = ['critico', 'urgente', 'bloqueio', 'atencao'];
+  const pendenciasNaoTratadas = notificacoes.filter((n) =>
+    !n.tratada && TIPOS_OPERACIONAIS.includes(n.tipo)
+  ).length;
+  const temNovas = notificacoes.some((n) => n.nova && TIPOS_OPERACIONAIS.includes(n.tipo));
   const saudacao = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
   const rotasSemVoltar = ['/', '/dashboard'];
   const mostrarVoltar = !rotasSemVoltar.includes(location.pathname);
@@ -58,12 +61,12 @@ export default function Topbar() {
         <div className="topbar-spacer" />
         <button className="topbar-search" onClick={() => setSearchAberto(true)}><span>⌕</span><span>Buscar obra...</span></button>
         <button
-          className={`topbar-notif ${novas > 0 ? 'tem-novas' : ''}`}
+          className={`topbar-notif ${temNovas ? 'tem-novas' : ''}`}
           onClick={toggleNotificacoes}
         >
           🔔
-          {naoLidas > 0 && (
-            <span className="notif-badge">{naoLidas > 9 ? '9+' : naoLidas}</span>
+          {pendenciasNaoTratadas > 0 && (
+            <span className="notif-badge">{pendenciasNaoTratadas > 9 ? '9+' : pendenciasNaoTratadas}</span>
           )}
         </button>
       </header>
@@ -78,14 +81,14 @@ export default function Topbar() {
           <div className="notif-panel-hdr">
             <span>Notificações</span>
             <div style={{ display: 'flex', gap: 8 }}>
-              {notificacoes.some((n) => n.lida) && (
-                <button className="notif-limpar-btn" onClick={limparNotificacoesLidas}>
-                  Limpar lidas
+              {notificacoes.some((n) => n.tratada) && (
+                <button className="notif-limpar-btn" onClick={limparTratadas}>
+                  Limpar tratadas
                 </button>
               )}
-              {novas > 0 && (
+              {notificacoes.some((n) => n.nova) && (
                 <button className="notif-limpar-btn" onClick={marcarNotificacoesLidas}>
-                  Marcar todas como lidas
+                  Marcar vistas
                 </button>
               )}
             </div>
@@ -97,10 +100,15 @@ export default function Topbar() {
             </div>
           )}
 
-          {notificacoes.map((n) => (
+          {notificacoes.filter((n) => !n.tratada && TIPOS_OPERACIONAIS.includes(n.tipo)).length > 0 && (
+            <div className="notif-secao-label">Pendentes</div>
+          )}
+          {notificacoes
+            .filter((n) => !n.tratada && TIPOS_OPERACIONAIS.includes(n.tipo))
+            .map((n) => (
             <div
               key={n.id}
-              className={`notif-item ${n.nova ? 'nova' : ''} ${n.lida ? 'lida' : ''}`}
+              className={`notif-item ${n.nova ? 'nova' : ''}`}
               onClick={() => {
                 marcarUmaLida(n.id);
                 if (n.obraId) {
@@ -111,23 +119,57 @@ export default function Topbar() {
             >
               <span
                 className="notif-dot"
-                style={{ background: n.lida ? 'var(--cinza-borda)' : (n.cor || 'var(--azul)') }}
+                style={{ background: n.cor || 'var(--vermelho)' }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="notif-texto">{n.texto}</div>
                 <div className="notif-meta">{n.data} · {n.hora}</div>
               </div>
-              {!n.lida && (
-                <button
-                  className="notif-marcar-btn"
-                  onClick={(e) => { e.stopPropagation(); marcarUmaLida(n.id); }}
-                  title="Marcar como lida"
-                >
-                  ✓
-                </button>
-              )}
+              <button
+                className="notif-marcar-btn"
+                style={{ background: 'var(--verde-claro, #DCFCE7)', borderColor: 'var(--verde)', color: 'var(--verde)', fontWeight: 700 }}
+                onClick={(e) => { e.stopPropagation(); marcarTratada(n.id); }}
+                title="Marcar como tratado"
+              >
+                ✓ Tratado
+              </button>
             </div>
           ))}
+
+          {notificacoes.filter((n) => n.tratada || !TIPOS_OPERACIONAIS.includes(n.tipo)).length > 0 && (
+            <div className="notif-secao-label" style={{ opacity: 0.6 }}>Histórico</div>
+          )}
+          {notificacoes
+            .filter((n) => n.tratada || !TIPOS_OPERACIONAIS.includes(n.tipo))
+            .map((n) => (
+              <div
+                key={n.id}
+                className={`notif-item lida ${n.tratada ? 'tratada' : ''}`}
+                onClick={() => {
+                  if (n.obraId) {
+                    navigate(`/obras/${n.obraId}`);
+                    setNotifAberto(false);
+                  }
+                }}
+              >
+                <span className="notif-dot" style={{ background: 'var(--cinza-borda)' }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="notif-texto">{n.texto}</div>
+                  <div className="notif-meta">
+                    {n.data} · {n.hora}
+                    {n.tratada && <span style={{ color: 'var(--verde)', marginLeft: 6 }}>✓ Tratado</span>}
+                  </div>
+                </div>
+                {!n.lida && (
+                  <button
+                    className="notif-marcar-btn"
+                    onClick={(e) => { e.stopPropagation(); marcarUmaLida(n.id); }}
+                  >
+                    ✓ Lido
+                  </button>
+                )}
+              </div>
+            ))}
         </div>
       )}
       <SearchOverlay aberto={searchAberto} onClose={() => setSearchAberto(false)} />
