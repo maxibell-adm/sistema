@@ -1,8 +1,0 @@
-export const ATIVIDADES_EXEMPLO = [
-  { id: '1', pp: 'PP-9044', cliente: 'Supermercado Pão & Sal', cidade: 'São Gonçalo', tipo: 'Instalação', data: '2026-07-08', diaDaSemana: 3, equipe: 'Equipe 1 + Matheus', responsavel: 'André', responsavelExecucao: 'Equipe 1', obs: 'Levar peças de reposição', status: 'programado', pendencias: '' },
-  { id: '2', pp: 'PP-9091', cliente: 'Roberto Antunes', cidade: 'Varginha', tipo: 'Entrega', data: '2026-07-08', diaDaSemana: 3, equipe: 'André + Motorista', responsavel: 'André', responsavelExecucao: 'André', obs: 'Confirmar endereço antes', status: 'programado', pendencias: '' },
-  { id: '3', pp: 'PP-9082', cliente: 'João Carlos Silva', cidade: 'Varginha', tipo: 'Medição Inicial', data: '2026-07-08', diaDaSemana: 3, equipe: 'Matheus', responsavel: 'Matheus', responsavelExecucao: 'Matheus', obs: 'Apto no centro', status: 'programado', pendencias: '' },
-  { id: '4', pp: 'PP-9068', cliente: 'Construtora Horizonte', cidade: 'Campanha', tipo: 'Fabricação', data: '2026-07-09', diaDaSemana: 4, equipe: 'Fábrica', responsavel: 'André', obs: 'Lote grande - iniciar cedo', status: 'programado', pendencias: '' },
-  { id: '5', pp: 'PP-9101', cliente: 'Condomínio Ville Park', cidade: 'Varginha', tipo: 'Medição Final', data: '2026-07-08', diaDaSemana: 3, equipe: 'Matheus', responsavel: 'Matheus', responsavelExecucao: 'Matheus', obs: 'Revisar medidas finais', status: 'programado', pendencias: '' },
-  { id: '6', pp: 'PP-9120', cliente: 'Residencial Primavera', cidade: 'Três Corações', tipo: 'Manutenção', data: '2026-07-08', diaDaSemana: 3, equipe: 'Matheus', responsavel: 'Matheus', responsavelExecucao: 'Matheus', obs: 'Verificar regulagem da porta', status: 'programado', pendencias: '' },
-];

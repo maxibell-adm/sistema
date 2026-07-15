@@ -1,3 +1,9 @@
+// Versão do sistema — atualizar manualmente a cada ciclo importante
+export const VERSAO_SISTEMA = '2.6';
+// BUILD_NUMBER e BUILD_DATE são injetados automaticamente pelo GitHub Actions
+export const BUILD_NUMBER = typeof __BUILD_NUMBER__ !== 'undefined' ? __BUILD_NUMBER__ : 'dev';
+export const BUILD_DATE = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toLocaleDateString('pt-BR');
+
 export const TIPOS_SERVICO = [
   'COM INSTALA\u00c7\u00c3O / COM CONTRAMARCO',
   'COM INSTALA\u00c7\u00c3O / SEM CONTRAMARCO',

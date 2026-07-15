@@ -117,10 +117,7 @@ export function ObrasProvider({ children }) {
       ia_observacoes: [],
     };
     setObras((atuais) => [nova, ...atuais]);
-    gerarNotificacao({ para: nova.responsavel, texto: `${nova.pp} cadastrada e atribuída para ${nova.responsavel}.`, tipo: 'info', obraId: nova.id ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+    gerarNotificacao({ para: nova.responsavel, texto: `${nova.pp} cadastrada e atribuída para ${nova.responsavel}.`, tipo: 'info', obraId: nova.id, natureza: 'evento', origem: 'Sistema', });
     gerarNotificacao({
       para: 'André',
       texto: nova.tipo === 'COM INSTALAÇÃO / COM CONTRAMARCO'
@@ -129,9 +126,6 @@ export function ObrasProvider({ children }) {
       tipo: 'vhsys',
       cor: '#1E5799',
       obraId: nova.id,
-    ,
-      natureza: 'evento',
-      origem: 'Sistema',
     });
     mostrarToast('Obra cadastrada com sucesso.', 'success');
     // FIREBASE: addDoc(collection(db, 'obras'), nova).
@@ -139,7 +133,7 @@ export function ObrasProvider({ children }) {
     return nova;
   }
 
-  function avancarEtapa(obraId, novaEtapa, motivo, opcoes = {}) {
+  function avancarEtapa(obraId, novaEtapa, motivo) {
     const obra = obras.find((item) => item.id === obraId);
     if (!obra || !usuario) return { ok: false, erro: 'Obra não encontrada.' };
     if (!podeAvancarEtapa(usuario.role, obra.etapa)) return { ok: false, erro: 'Você não tem permissão para avançar esta etapa.' };
@@ -177,10 +171,7 @@ export function ObrasProvider({ children }) {
           texto: `Card OC ${obra.pp} chegou em ${labelEtapa(destino)}${novoPrazo ? `. Prazo: ${new Date(`${novoPrazo}T00:00:00`).toLocaleDateString('pt-BR')}.` : '.'}`,
           tipo: 'urgente',
           obraId,
-        ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+        });
       }
       mostrarToast('Card OC avancado.', 'success');
       return { ok: true };
@@ -228,33 +219,9 @@ export function ObrasProvider({ children }) {
 
     if (obra.etapa === 'medicao_final' && destino === 'projeto_final') {
       const prazos = cronogramaProducao(agora);
-      const condicaoEspecialAvanco = opcoes?.condicaoEspecial;
       patch.cronograma = prazos;
       patch.prazo = prazos.projeto_final;
       patch.dataInicioProducao = agora.toISOString().slice(0, 10);
-      if (condicaoEspecialAvanco?.ativa) {
-        patch.condicaoEspecial = condicaoEspecialAvanco;
-        patch.historico = [...patch.historico, {
-          data: formatarData(agora),
-          hora: formatarHora(agora),
-          usuario: usuario.nome,
-          acao: 'Condição especial registrada',
-          desc: condicaoEspecialAvanco.texto,
-          tipo: 'condicao_especial',
-        }];
-      }
-      const condicaoParaAllana = condicaoEspecialAvanco?.ativa ? condicaoEspecialAvanco : obra.condicaoEspecial?.ativa ? obra.condicaoEspecial : null;
-      if (condicaoParaAllana) {
-        gerarNotificacao({
-          para: 'Allana',
-          texto: `⚠ ${obra.pp} - ${obra.cliente} chegou para projeto com CONDIÇÃO ESPECIAL: ${condicaoParaAllana.texto}`,
-          tipo: 'atencao',
-          obraId,
-        ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
-      }
     }
 
     if (obra.etapa === 'projeto_final' && destino === 'compras') {
@@ -294,14 +261,8 @@ export function ObrasProvider({ children }) {
         ...atuais.map((item) => (item.id === obraId ? { ...item, ...patch, atualizadoEm: agora.toISOString() } : item)),
         obraCM,
       ]);
-      gerarNotificacao({ para: 'André', texto: `Card CM criado: ${obraCM.pp} - Fabricação do Contramarco.`, tipo: 'info', cor: '#1E5799', obraId: obraCM.id ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
-      gerarNotificacao({ para: 'Matheus', texto: `${obra.pp} aguarda Medição Final.`, tipo: 'info', cor: '#1E5799', obraId ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      gerarNotificacao({ para: 'André', texto: `Card CM criado: ${obraCM.pp} - Fabricação do Contramarco.`, tipo: 'info', cor: '#1E5799', obraId: obraCM.id, natureza: 'evento', origem: usuario.nome, });
+      gerarNotificacao({ para: 'Matheus', texto: `${obra.pp} aguarda Medição Final.`, tipo: 'info', cor: '#1E5799', obraId, natureza: 'evento', origem: 'Sistema', });
       mostrarToast('Etapa avançada e card CM criado.', 'success');
       return { ok: true };
     }
@@ -317,10 +278,7 @@ export function ObrasProvider({ children }) {
         }
         return item;
       }));
-      gerarNotificacao({ para: 'Álvaro', texto: `Contramarco ${obra.pp} entregue e encerrado.`, tipo: 'sucesso', cor: '#27AE60', obraId: obra.obraMaeId ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      gerarNotificacao({ para: 'Álvaro', texto: `Contramarco ${obra.pp} entregue e encerrado.`, tipo: 'sucesso', cor: '#27AE60', obraId: obra.obraMaeId, natureza: 'evento', origem: usuario.nome, });
       mostrarToast('Card CM encerrado.', 'success');
       return { ok: true };
     }
@@ -332,15 +290,9 @@ export function ObrasProvider({ children }) {
     }
 
     atualizarObra(obraId, patch);
-    if (responsavel) gerarNotificacao({ para: responsavel, texto: `${usuario.nome} avançou ${obra.pp} para ${labelEtapa(destino)}.`, tipo: 'info', cor: '#1E5799', obraId ,
-      natureza: 'evento',
-      origem: usuario.nome,
-    });
+    if (responsavel) gerarNotificacao({ para: responsavel, texto: `${usuario.nome} avançou ${obra.pp} para ${labelEtapa(destino)}.`, tipo: 'info', cor: '#1E5799', obraId, natureza: 'evento', origem: usuario.nome, });
     if (destino === 'finalizado') {
-      gerarNotificacao({ para: 'Álvaro', texto: `Obra finalizada: ${obra.pp} - ${obra.cliente}. Atualizar no VHSYS como atendido.`, tipo: 'sucesso', cor: '#27AE60', obraId ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      gerarNotificacao({ para: 'Álvaro', texto: `Obra finalizada: ${obra.pp} - ${obra.cliente}. Atualizar no VHSYS como atendido.`, tipo: 'sucesso', cor: '#27AE60', obraId, natureza: 'evento', origem: usuario.nome, });
 
       const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
       const responsavelComercial = usuarioPorRole('comercial')?.nome || 'Ana';
@@ -364,10 +316,7 @@ export function ObrasProvider({ children }) {
         tipo: 'info',
         cor: '#8E44AD',
         obraId,
-      ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      });
     }
     mostrarToast('Etapa avançada e histórico registrado.', 'success');
     return { ok: true };
@@ -379,10 +328,7 @@ export function ObrasProvider({ children }) {
     const agora = new Date();
     const evento = { data: formatarData(agora), hora: formatarHora(agora), usuario: usuario.nome, acao: 'Comentário interno', desc: texto, tipo: 'comentario' };
     atualizarObra(obraId, { historico: [...obra.historico, evento] });
-    gerarNotificacao({ para: obra.responsavel, texto: `${usuario.nome} comentou em ${obra.pp}.`, tipo: 'info', obraId ,
-      natureza: 'evento',
-      origem: usuario.nome,
-    });
+    gerarNotificacao({ para: obra.responsavel, texto: `${usuario.nome} comentou em ${obra.pp}.`, tipo: 'info', obraId, natureza: 'evento', origem: usuario.nome, });
     mostrarToast('Comentário registrado.', 'success');
     // FIREBASE: salvar comentário no histórico da obra.
   }
@@ -451,10 +397,7 @@ export function ObrasProvider({ children }) {
         texto: `Ocorrencia registrada em ${obraMae.pp}: aguardando cliente. Retorno: ${dadosOcorrencia.dataRetorno}.`,
         tipo: 'aviso',
         obraId: obraMaeId,
-      ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      });
       mostrarToast('Ocorrencia registrada.', 'success');
       return;
     }
@@ -545,10 +488,7 @@ export function ObrasProvider({ children }) {
         texto: `OCORRENCIA CRITICA: ${labelTipoOC(dadosOcorrencia.tipo)} em ${obraMae.pp} - ${obraMae.cliente}. ${dadosOcorrencia.descricao}`,
         tipo: 'bloqueio',
         obraId: cardOC.id,
-      ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      });
     }
 
     mostrarToast('Ocorrencia aberta e card OC criado.', 'success');
@@ -627,29 +567,20 @@ export function ObrasProvider({ children }) {
         texto: `Todas as ocorrencias de ${obraMae.pp} foram resolvidas. A instalacao pode ser concluida.`,
         tipo: 'sucesso',
         obraId: obraMae.id,
-      ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      });
       gerarNotificacao({
         para: '\u00c1lvaro',
         texto: `Ocorrencias de ${obraMae.pp} resolvidas. Andre pode finalizar a instalacao.`,
         tipo: 'sucesso',
         obraId: obraMae.id,
-      ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      });
     } else {
       gerarNotificacao({
         para: 'Andr\u00e9',
         texto: `Card ${cardOC.pp} resolvido. Ainda ha ${pendentesRestantes.length} ocorrencia(s) aberta(s) em ${obraMae.pp}.`,
         tipo: 'info',
         obraId: obraMae.id,
-      ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+      });
     }
 
     mostrarToast('Card OC encerrado.', 'success');
@@ -690,9 +621,6 @@ export function ObrasProvider({ children }) {
       texto: `${obra.pp} - prazo prorrogado para ${new Date(`${novaData}T00:00:00`).toLocaleDateString('pt-BR')}. Motivo: ${motivo}`,
       tipo: 'aviso',
       obraId,
-    ,
-      natureza: 'evento',
-      origem: 'Sistema',
     });
     mostrarToast('Prazo prorrogado com sucesso.', 'success');
     return { ok: true };
@@ -720,10 +648,7 @@ export function ObrasProvider({ children }) {
         texto: `VHSYS de ${obra.pp} atualizado por ${usuario.nome}.`,
         tipo: 'info',
         obraId,
-      ,
-      natureza: 'evento',
-      origem: usuario.nome,
-    });
+      });
     }
     atualizarObra(obraId, patch);
   }
@@ -742,10 +667,7 @@ export function ObrasProvider({ children }) {
       tipo: 'comentario',
     };
     atualizarObra(obraId, { pendencia, historico: [...(obra.historico || []), evento], responsavel: dados.responsavel });
-    gerarNotificacao({ para: dados.responsavel, texto: `${usuario.nome} abriu pendência em ${obra.pp} - ${dados.tipo} - prazo: ${dados.prazo} dias`, tipo: 'bloqueio', cor: '#E67E22', obraId ,
-      natureza: 'evento',
-      origem: usuario.nome,
-    });
+    gerarNotificacao({ para: dados.responsavel, texto: `${usuario.nome} abriu pendência em ${obra.pp} - ${dados.tipo} - prazo: ${dados.prazo} dias`, tipo: 'bloqueio', cor: '#E67E22', obraId });
   }
 
   function resolverPendencia(obraId, observacao) {
@@ -754,10 +676,7 @@ export function ObrasProvider({ children }) {
     const agora = new Date();
     const evento = { data: formatarData(agora), hora: formatarHora(agora), usuario: usuario.nome, acao: 'Pendência resolvida', desc: observacao, tipo: 'comentario' };
     atualizarObra(obraId, { pendencia: { ...obra.pendencia, aberta: false, resolvidaEm: agora.toISOString(), resolvidaPor: usuario.nome }, historico: [...(obra.historico || []), evento], responsavel: 'Allana' });
-    gerarNotificacao({ para: 'Allana', texto: `Pendência resolvida em ${obra.pp} - pode retomar o projeto.`, tipo: 'sucesso', cor: '#27AE60', obraId ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
+    gerarNotificacao({ para: 'Allana', texto: `Pendência resolvida em ${obra.pp} - pode retomar o projeto.`, tipo: 'sucesso', cor: '#27AE60', obraId, natureza: 'evento', origem: usuario.nome, });
   }
 
   function registrarAvisoDivisao(obraId, texto) {
@@ -775,10 +694,7 @@ export function ObrasProvider({ children }) {
     };
     const evento = { data: formatarData(agora), hora: formatarHora(agora), usuario: usuario.nome, acao: 'Aviso de divisão de escopo', desc: texto, tipo: 'aviso_divisao' };
     atualizarObra(obraId, { pendencia, historico: [...obra.historico, evento] });
-    gerarNotificacao({ para: 'Allana', texto: `${usuario.nome} avisou sobre divisão de escopo em ${obra.pp} - verificar antes de liberar.`, tipo: 'bloqueio', cor: '#E67E22', obraId ,
-      natureza: 'evento',
-      origem: usuario.nome,
-    });
+    gerarNotificacao({ para: 'Allana', texto: `${usuario.nome} avisou sobre divisão de escopo em ${obra.pp} - verificar antes de liberar.`, tipo: 'bloqueio', cor: '#E67E22', obraId, natureza: 'evento', origem: usuario.nome, });
     return { ok: true };
   }
 
@@ -855,19 +771,10 @@ export function ObrasProvider({ children }) {
     ]);
 
     filhas.forEach((filha) => {
-      gerarNotificacao({ para: 'Matheus', texto: `Nova fase criada - ${filha.pp} aguarda sua medição final. ${filha.cliente} - ${filha.cidade}`, tipo: 'bloqueio', cor: '#E67E22', obraId: filha.id ,
-      natureza: 'evento',
-      origem: 'Sistema',
+      gerarNotificacao({ para: 'Matheus', texto: `Nova fase criada - ${filha.pp} aguarda sua medição final. ${filha.cliente} - ${filha.cidade}`, tipo: 'bloqueio', cor: '#E67E22', obraId: filha.id, natureza: 'evento', origem: usuario.nome, });
+      gerarNotificacao({ para: 'André', texto: `Cadastrar ${filha.pp} no VHSys - ${filha.cliente} - Fase ${filha.fase} da obra ${obraMae.pp}`, tipo: 'sistema', cor: '#1E5799', obraId: filha.id, natureza: 'evento', origem: 'Sistema', });
     });
-      gerarNotificacao({ para: 'André', texto: `Cadastrar ${filha.pp} no VHSys - ${filha.cliente} - Fase ${filha.fase} da obra ${obraMae.pp}`, tipo: 'sistema', cor: '#1E5799', obraId: filha.id ,
-      natureza: 'evento',
-      origem: 'Sistema',
-    });
-    });
-    gerarNotificacao({ para: 'Álvaro', texto: `Obra ${obraMae.pp} dividida em ${filhas.length + 1} fases por ${usuario.nome}.`, tipo: 'info', cor: '#1E5799', obraId ,
-      natureza: 'evento',
-      origem: usuario.nome,
-    });
+    gerarNotificacao({ para: 'Álvaro', texto: `Obra ${obraMae.pp} dividida em ${filhas.length + 1} fases por ${usuario.nome}.`, tipo: 'info', cor: '#1E5799', obraId, natureza: 'evento', origem: usuario.nome, });
     return { ok: true };
   }
 
