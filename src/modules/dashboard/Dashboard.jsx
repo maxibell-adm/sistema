@@ -2430,21 +2430,7 @@ export default function Dashboard() {
                   </div>
                 ))}
               </div>
-              <div className="section-titulo mb-10">Gargalos por etapa</div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {[
-                  { label: 'Compras', n: obrasEmCompras.filter((o) => calcPrazo(o.prazo).classe === 'badge-vencido').length },
-                  { label: 'Projetos', n: obrasAtivas.filter((o) => ['projeto_contramarco', 'projeto_final'].includes(o.etapa) && calcPrazo(o.prazo).classe === 'badge-vencido').length },
-                  { label: 'Produção', n: obrasAtivas.filter((o) => o.etapa === 'montagem' && calcPrazo(o.prazo).classe === 'badge-vencido').length },
-                  { label: 'Instalação', n: obrasAtivas.filter((o) => o.etapa === 'instalacao' && calcPrazo(o.prazo).classe === 'badge-vencido').length },
-                ].map((g) => (
-                  <div key={g.label} style={{ flex: 1, minWidth: 80, textAlign: 'center', padding: '10px 8px', background: 'var(--cinza-claro)', borderRadius: 8 }}>
-                    <div style={{ fontSize: 22 }}>{g.n === 0 ? '🟢' : g.n <= 2 ? '🟡' : '🔴'}</div>
-                    <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 4 }}>{g.label}</div>
-                    {g.n > 0 && <div style={{ fontSize: 10, color: 'var(--vermelho)', fontWeight: 700 }}>{g.n} atraso(s)</div>}
-                  </div>
-                ))}
-              </div>
+
             </>
           ),
         },
@@ -2551,7 +2537,35 @@ export default function Dashboard() {
             }}
           >Particular</Button>
         </div>
-        {telaAlvaro === 1 && (
+        {telaAlvaro === 1 && agendaPainel === 'amanha' && (
+          <>
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">📅 Agenda de amanhã</div>
+              {atividadesPerfil.filter((a) => a.data === amanhaIso).length ? (
+                <div className="agenda-hoje-horizontal">
+                  {atividadesPerfil
+                    .filter((a) => a.data === amanhaIso)
+                    .map((atividade) => (
+                      <button className="agenda-hoje-card" key={atividade.id} onClick={() => abrirObraDaAtividade(atividade)}>
+                        <span className="ativ-tipo-mini">{atividade.tipo}</span>
+                        <span className="ativ-pp-mini">{atividade.pp} — {atividade.cliente}</span>
+                        <span className="ativ-cidade-mini">📍 {atividade.cidade}</span>
+                        <span className="ativ-resp-mini">{atividade.responsavelExecucao || atividade.responsavel}</span>
+                      </button>
+                    ))}
+                </div>
+              ) : (
+                <div className="empty-state">Nenhuma atividade programada para amanhã.</div>
+              )}
+            </section>
+            <section className="card card-pad mb-16">
+              <div className="section-titulo mb-12">📌 Lembretes de amanhã</div>
+              <LembretesRecebidos usuario={usuario} inline />
+            </section>
+          </>
+        )}
+
+        {telaAlvaro === 1 && agendaPainel !== 'amanha' && (
           <>
             <section className="card card-pad mb-16">
               <div className="section-titulo mb-8">Radar da Empresa</div>
@@ -2585,36 +2599,9 @@ export default function Dashboard() {
               )}
             </section>
 
-            <section className="card card-pad mb-16">
-              <div className="section-titulo mb-12">🕵️ Passou batido</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                {areasRadar.map((item) => (
-                  <button
-                    key={item.nome}
-                    className="btn-radar-area"
-                    onClick={() => abrirListaOuObra(item.obras, setListaPreviaAlvaro, {
-                      titulo: item.nome,
-                      subtitulo: `${item.total} obra(s) em atenção`,
-                      cor: item.cor,
-                    })}
-                  >
-                    <span>{statusArea(item.total)}</span>
-                    <b>{item.nome}</b>
-                    <small>{item.total} em atenção</small>
-                  </button>
-                ))}
-              </div>
-            </section>
 
-            <section className="card card-pad mb-16">
-              <div className="section-titulo mb-12">⚡ Gargalos</div>
-              <div className="stats-grid">
-                <div className="stat-card"><span>Compras</span><b>{corGargalo(gargaloCompras)} {gargaloCompras}</b></div>
-                <div className="stat-card"><span>Projetos</span><b>{corGargalo(gargaloProjeto)} {gargaloProjeto}</b></div>
-                <div className="stat-card"><span>Produção</span><b>{corGargalo(gargaloProducao)} {gargaloProducao}</b></div>
-                <div className="stat-card"><span>Instalação</span><b>{corGargalo(gargaloInstalacao)} {gargaloInstalacao}</b></div>
-              </div>
-            </section>
+
+
 
             <section className="card card-pad mb-16">
               <div className="section-titulo mb-12">💚 Saúde da empresa</div>
@@ -2672,27 +2659,7 @@ export default function Dashboard() {
             </section>
             )}
 
-            {agendaPainel === 'amanha' && (
-              <section className="card card-pad mb-16">
-                <div className="section-titulo mb-12">📅 Agenda de amanhã</div>
-                {atividadesPerfil.filter((a) => a.data === amanhaIso).length ? (
-                  <div className="agenda-hoje-horizontal">
-                    {atividadesPerfil
-                      .filter((a) => a.data === amanhaIso)
-                      .map((atividade) => (
-                        <button className="agenda-hoje-card" key={atividade.id} onClick={() => abrirObraDaAtividade(atividade)}>
-                          <span className="ativ-tipo-mini">{atividade.tipo}</span>
-                          <span className="ativ-pp-mini">{atividade.pp} — {atividade.cliente}</span>
-                          <span className="ativ-cidade-mini">📍 {atividade.cidade}</span>
-                          <span className="ativ-resp-mini">{atividade.responsavelExecucao || atividade.responsavel}</span>
-                        </button>
-                      ))}
-                  </div>
-                ) : (
-                  <div className="empty-state">Nenhuma atividade programada para amanhã.</div>
-                )}
-              </section>
-            )}
+
 
             <InsightCapacidade obras={obrasVisiveis} />
           </>
@@ -2705,8 +2672,19 @@ export default function Dashboard() {
         )}
         {telaAlvaro === 'notificar' && (
           <section>
-            <div className="section-titulo mb-4">🕵️ Passou batido</div>
-            <div className="text-muted fs-12 mb-16">O que cada colaborador deveria ter feito e não fez.</div>
+            {/* Header com botão voltar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+              <button
+                onClick={() => setTelaAlvaro(1)}
+                style={{ background: 'var(--cinza-claro)', border: '1px solid var(--cinza-borda)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--azul)', display: 'flex', alignItems: 'center', gap: 4 }}
+              >
+                ← Voltar
+              </button>
+              <div>
+                <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 14, fontWeight: 800, color: 'var(--azul)' }}>🕵️ Passou batido</div>
+                <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>O que cada colaborador deveria ter feito e não fez.</div>
+              </div>
+            </div>
 
             {(() => {
               const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -2770,31 +2748,30 @@ export default function Dashboard() {
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                   {colaboradoresPB.map((col) => (
-                    <div key={col.nome} style={{ background: 'var(--branco)', border: '1px solid var(--cinza-borda)', borderLeft: `4px solid ${col.cor}`, borderRadius: 10, overflow: 'hidden' }}>
+                    <div key={col.nome} style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #E5E7EB' }}>
                       {/* Header */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--cinza-claro)', borderBottom: '1px solid var(--cinza-borda)' }}>
-                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: col.cor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 12, fontFamily: 'Montserrat,sans-serif' }}>{col.nome.charAt(0)}</div>
-                        <span style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 12, fontWeight: 800, color: 'var(--azul)', flex: 1 }}>{col.nome}</span>
-                        <span style={{ background: col.cor, color: '#fff', fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 10 }}>{col.itens.length}</span>
-                        {/* Botão Delegar */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', background: '#F9FAFB', borderBottom: '1px solid #F3F4F6' }}>
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: col.cor, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, fontFamily: 'Montserrat,sans-serif', flexShrink: 0 }}>{col.nome.charAt(0)}</div>
+                        <span style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 14, fontWeight: 800, color: '#111827', flex: 1 }}>{col.nome}</span>
+                        <span style={{ background: col.cor, color: '#fff', fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 99, fontFamily: 'Montserrat,sans-serif', letterSpacing: '0.3px' }}>{col.itens.length}</span>
                         <button
-                          className="btn btn-secondary btn-sm"
-                          style={{ marginLeft: 8, fontSize: 11 }}
+                          style={{ fontSize: 11, fontWeight: 700, padding: '6px 14px', borderRadius: 8, border: '1.5px solid #E5E7EB', background: '#fff', cursor: 'pointer', color: 'var(--azul)', display: 'flex', alignItems: 'center', gap: 5, transition: '.12s' }}
                           onClick={() => { setDelegandoPara(delegandoPara === col.nome ? null : col.nome); setTextoDelegar(''); }}
                         >
                           ↩ Delegar
                         </button>
                       </div>
                       {/* Itens */}
-                      <div style={{ padding: '4px 0' }}>
+                      <div>
                         {col.itens.map((item, j) => (
                           <button
                             key={j}
                             onClick={() => item.obraId && navigate(`/obras/${item.obraId}`)}
-                            style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '8px 14px', borderBottom: j < col.itens.length - 1 ? '1px solid var(--cinza-claro)' : 'none', background: 'transparent', cursor: item.obraId ? 'pointer' : 'default' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left', padding: '13px 18px', borderBottom: j < col.itens.length - 1 ? '1px solid #F9FAFB' : 'none', background: 'transparent', cursor: item.obraId ? 'pointer' : 'default', transition: '.12s' }}
                           >
-                            <span style={{ fontSize: 12, color: 'var(--cinza-escuro)', flex: 1 }}>{item.texto}</span>
-                            {item.obraId && <span style={{ fontSize: 13, color: 'var(--cinza-medio)' }}>›</span>}
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: col.cor, flexShrink: 0, opacity: 0.7 }} />
+                            <span style={{ fontSize: 13, color: '#374151', flex: 1, lineHeight: 1.5 }}>{item.texto}</span>
+                            {item.obraId && <span style={{ fontSize: 17, color: '#D1D5DB', flexShrink: 0 }}>›</span>}
                           </button>
                         ))}
                       </div>

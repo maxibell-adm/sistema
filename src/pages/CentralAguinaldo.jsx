@@ -1,64 +1,169 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 import { useApp } from '@/modules/layout/AppContext.jsx';
 import { gerarInsights } from '@/modules/ia/motorInsights.js';
 import { listarMemoriaLonga } from '@/modules/ia/memoriaLonga.js';
 import { perguntarIA } from '@/services/claudeAPI.js';
+import AgendaSemanal from '@/modules/agenda/AgendaSemanal.jsx';
+import CentralObras from '@/modules/obras/CentralObras.jsx';
+import { calcPrazo } from '@/rules/prazosRules.js';
 
-const USUARIO_AGUINALDO = { nome: 'Aguinaldo', role: 'supervisor', cargo: 'Presidente' };
-
-function tipoInsight(tipo) {
-  if (tipo === 'risco') return 'Risco';
-  if (tipo === 'prazo') return 'Prazo';
-  if (tipo === 'capacidade') return 'Capacidade';
-  if (tipo === 'agenda') return 'Agenda';
-  if (tipo === 'biblioteca') return 'Biblioteca';
-  return 'OK';
+function formatarValor(v) {
+  if (!v) return 'R$ -';
+  const num = parseFloat(String(v).replace(/[R$\s.]/g, '').replace(',', '.'));
+  if (Number.isNaN(num)) return 'R$ -';
+  return `R$ ${num.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
 }
 
-export default function CentralAguinaldo() {
+function somarValores(obras) {
+  return obras.reduce((acc, obra) => {
+    const num = parseFloat(String(obra.valor || '0').replace(/[R$\s.]/g, '').replace(',', '.'));
+    return acc + (Number.isNaN(num) ? 0 : num);
+  }, 0);
+}
+
+function dataHistorico(historico) {
+  if (!historico?.data) return null;
+  try {
+    const [d, m, a] = historico.data.split('/');
+    return new Date(`${a}-${m}-${d}T00:00:00`);
+  } catch {
+    return null;
+  }
+}
+
+function textoInsight(insight) {
+  return insight.corpo || insight.texto || '';
+}
+
+function lerArrayLocalStorage(chave) {
+  try {
+    const salvo = localStorage.getItem(chave);
+    if (!salvo) return [];
+    const parsed = JSON.parse(salvo);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    localStorage.removeItem(chave);
+    return [];
+  }
+}
+
+export default function CentralAguinaldo({ secaoInicial = 'home' }) {
   const navigate = useNavigate();
   const { obras } = useObrasContext();
   const { atividades } = useApp();
-  const [secao, setSecao] = useState('home');
-  const [subGrupo, setSubGrupo] = useState(null);
+  const [historico, setHistorico] = useState([secaoInicial]);
+  const secao = historico[historico.length - 1];
+
+  function navegar(proxima) {
+    setHistorico((h) => [...h, proxima]);
+  }
+
+  function voltar() {
+    setHistorico((h) => (h.length > 1 ? h.slice(0, -1) : h));
+  }
+
+  const [grupoAtivo, setGrupoAtivo] = useState(null);
+  const [mesSelecionado, setMesSelecionado] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
   const [pergunta, setPergunta] = useState('');
   const [resposta, setResposta] = useState('');
   const [carregando, setCarregando] = useState(false);
   const [parecer, setParecer] = useState('');
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
 
   const hojeIso = new Date().toISOString().split('T')[0];
   const obrasTotais = obras.filter((obra) => !obra.arquivado);
   const obrasAtivas = obrasTotais.filter((obra) => obra.etapa !== 'finalizado');
-  const obrasAtencao = obrasAtivas.filter((obra) => {
-    if (!obra.prazo) return false;
-    const dias = Math.ceil((new Date() - new Date(`${obra.prazo}T00:00:00`)) / 86400000);
-    return dias > 0 && dias <= 15;
-  });
-  const comprasCriticas = obrasAtivas.filter((obra) => obra.etapa === 'compras').length;
-  const instalacoesSemana = (atividades || []).filter((atividade) => atividade.tipo === 'Instalação' && atividade.data >= hojeIso).length;
+  const obrasFinalizadas = obrasTotais.filter((obra) => obra.etapa === 'finalizado');
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
   const biblioteca = useMemo(() => listarMemoriaLonga(), []);
-  const insights = gerarInsights(obras, atividades || [], biblioteca).slice(0, 3);
+  const insights = gerarInsights(obras, atividades || [], biblioteca)
+    .filter((insight) => insight.tipo !== 'biblioteca')
+    .slice(0, 3);
 
-  async function fazerPergunta(perguntaDireta) {
-    const texto = perguntaDireta || pergunta;
+  const gruposProducao = useMemo(() => ({
+    em_producao: {
+      label: 'Em produção',
+      cor: '#27AE60',
+      obras: obrasAtivas.filter((obra) => obra.etapa === 'montagem'),
+    },
+    aguardando_compra: {
+      label: 'Aguardando compra',
+      cor: '#E67E22',
+      obras: obrasAtivas.filter((obra) => obra.etapa === 'compras'),
+    },
+    aguardando_projeto: {
+      label: 'Aguardando projeto',
+      cor: '#8E44AD',
+      obras: obrasAtivas.filter((obra) => ['projeto_final', 'projeto_contramarco'].includes(obra.etapa)),
+    },
+    em_atraso: {
+      label: 'Em atraso',
+      cor: '#C0392B',
+      obras: obrasAtivas.filter((obra) => obra.prazo && new Date(`${obra.prazo}T00:00:00`) < new Date()),
+    },
+  }), [obrasAtivas]);
+
+  useEffect(() => {
+    const titulos = {
+      home: 'Painel',
+      grupo: grupoAtivo && gruposProducao[grupoAtivo] ? gruposProducao[grupoAtivo].label : 'Produção',
+      empresa: 'Financeiro',
+      equipe: 'Equipe',
+      max: 'MAX IA',
+    };
+    document.title = `${titulos[secao] || 'Painel'} · MAXIBELL`;
+    return () => { document.title = 'MAXIBELL OS'; };
+  }, [secao, grupoAtivo, gruposProducao]);
+
+  const dadosFinanceiros = useMemo(() => {
+    const inicioMes = new Date(`${mesSelecionado}-01T00:00:00`);
+    const fimMes = new Date(inicioMes);
+    fimMes.setMonth(fimMes.getMonth() + 1);
+
+    const vendasMes = obrasTotais.filter((obra) => {
+      const evento = (obra.historico || []).find((h) => h.tipo === 'criacao' || h.acao?.toLowerCase().includes('cadastrada'));
+      const data = dataHistorico(evento);
+      return data && data >= inicioMes && data < fimMes;
+    });
+
+    const produzidasMes = obrasTotais.filter((obra) => {
+      if (obra.ehCardOC || obra.ehCardCM) return false;
+      const evento = (obra.historico || []).find((h) => h.acao?.toLowerCase().includes('montagem') && h.tipo === 'etapa');
+      const data = dataHistorico(evento);
+      return data && data >= inicioMes && data < fimMes;
+    });
+
+    return {
+      vendas: vendasMes,
+      totalVendas: somarValores(vendasMes),
+      produzidas: produzidasMes,
+      totalProduzidas: somarValores(produzidasMes),
+    };
+  }, [mesSelecionado, obrasTotais]);
+
+  async function fazerPergunta(q) {
+    const texto = q || pergunta;
     if (!texto.trim()) return;
     setCarregando(true);
-    setSecao('max');
+    setPergunta('');
     const res = await perguntarIA(texto, {
       obras,
       atividades,
       biblioteca,
-      usuario: USUARIO_AGUINALDO,
+      usuario: { nome: 'Aguinaldo', role: 'supervisor', cargo: 'Presidente' },
     });
     setResposta(res.texto);
     setCarregando(false);
-    setPergunta('');
   }
 
   function enviarParecer() {
-    const lembretes = JSON.parse(localStorage.getItem('maxibell.lembretes.app') || '[]');
+    const lembretes = lerArrayLocalStorage('maxibell.lembretes.app');
     lembretes.unshift({
       id: Date.now().toString(),
       titulo: 'Parecer de Aguinaldo',
@@ -77,208 +182,207 @@ export default function CentralAguinaldo() {
   if (secao === 'home') {
     return (
       <div className="aguinaldo-wrap">
-        <div className="aguinaldo-saudacao">Bom dia, Aguinaldo.</div>
-        <div className="aguinaldo-subtitulo">Resumo da empresa hoje</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => navegar('empresa')}>Financeiro</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => navegar('equipe')}>Equipe</button>
+        </div>
 
-        <div className="aguinaldo-status-grid">
-          <div className="aguinaldo-status-card">
-            <span className="status-sinal ok" />
-            <span className="status-numero">{obrasAtivas.length}</span>
-            <span className="status-label">obras em andamento</span>
-          </div>
-          <div className="aguinaldo-status-card">
-            <span className={`status-sinal ${obrasAtencao.length > 2 ? 'critico' : obrasAtencao.length ? 'atencao' : 'ok'}`} />
-            <span className="status-numero">{obrasAtencao.length}</span>
-            <span className="status-label">com atenção</span>
-          </div>
-          <div className="aguinaldo-status-card">
-            <span className="status-sinal ok" />
-            <span className="status-numero">{instalacoesSemana}</span>
-            <span className="status-label">instalações esta semana</span>
-          </div>
-          <div className="aguinaldo-status-card">
-            <span className={`status-sinal ${comprasCriticas > 1 ? 'critico' : 'ok'}`} />
-            <span className="status-numero">{comprasCriticas}</span>
-            <span className="status-label">compras em andamento</span>
-          </div>
+        <div className="ag-prod-grid">
+          {Object.entries(gruposProducao).map(([id, grupo]) => (
+            <button
+              key={id}
+              className="ag-prod-card"
+              style={{ borderLeft: `4px solid ${grupo.cor}` }}
+              onClick={() => {
+                setGrupoAtivo(id);
+                navegar('grupo');
+              }}
+            >
+              <div className="ag-prod-numero" style={{ color: grupo.cor }}>{grupo.obras.length}</div>
+              <div className="ag-prod-label">{grupo.label}</div>
+              <div className="ag-prod-valor">{formatarValor(somarValores(grupo.obras))} em carteira</div>
+            </button>
+          ))}
         </div>
 
         {insights.length > 0 && (
-          <div className="aguinaldo-secao">
+          <div className="aguinaldo-secao mb-20">
             <div className="aguinaldo-secao-titulo">Alertas da MAX</div>
             {insights.map((insight) => (
               <div key={insight.id} className="aguinaldo-alerta-card">
-                <div className={`aguinaldo-alerta-tipo tipo-${insight.tipo}`}>{tipoInsight(insight.tipo)}</div>
+                <div className={`aguinaldo-alerta-tipo tipo-${insight.tipo}`}>{insight.tipo}</div>
                 <div className="aguinaldo-alerta-corpo">
                   <div className="aguinaldo-alerta-titulo">{insight.titulo}</div>
-                  <div className="aguinaldo-alerta-desc">{insight.texto}</div>
+                  <div className="aguinaldo-alerta-desc">{textoInsight(insight)}</div>
                 </div>
+                {insight.acao?.obraId && (
+                  <button className="aguinaldo-btn-ver" onClick={() => navigate(`/obras/${insight.acao.obraId}`)}>Ver</button>
+                )}
               </div>
             ))}
           </div>
         )}
 
-        <button className="aguinaldo-btn-empresa" onClick={() => fazerPergunta('Como está a empresa hoje? Faça um resumo executivo completo.')}>
-          Como está a empresa?
-        </button>
-
-        <div className="aguinaldo-nav-grid">
-          {[
-            { id: 'producao', label: 'Produção' },
-            { id: 'agenda', label: 'Agenda' },
-            { id: 'empresa', label: 'Empresa' },
-            { id: 'max', label: 'Conversar com MAX' },
-          ].map((btn) => (
-            <button key={btn.id} className="aguinaldo-nav-btn" onClick={() => setSecao(btn.id)}>
-              <span className="aguinaldo-nav-label">{btn.label}</span>
-            </button>
-          ))}
-        </div>
       </div>
     );
   }
-
-  if (secao === 'producao') {
-    const grupos = {
-      em_producao: { label: 'Em produção', etapas: ['montagem'], cor: '#27AE60' },
-      aguardando_compra: { label: 'Aguardando compra', etapas: ['compras'], cor: '#E67E22' },
-      aguardando_projeto: { label: 'Aguardando projeto', etapas: ['projeto_final', 'projeto_contramarco'], cor: '#8E44AD' },
-      parada: { label: 'Produção parada', etapas: ['medicao_final'], cor: '#C0392B' },
-    };
-    const obrasFiltradas = subGrupo ? obrasAtivas.filter((obra) => grupos[subGrupo]?.etapas.includes(obra.etapa)) : [];
+  if (secao === 'grupo') {
+    const grupo = grupoAtivo ? gruposProducao[grupoAtivo] : null;
+    if (!grupo) { navegar('home'); return null; }
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => { setSubGrupo(null); setSecao('home'); }}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Produção</div>
-        <div className="aguinaldo-status-card grande">
-          <span className="status-numero grande">{obrasAtivas.length}</span>
-          <span className="status-label">obras ativas</span>
+        <div className="ag-grupo-header">
+          <button className="btn btn-secondary btn-sm" onClick={voltar}>Voltar</button>
+          <span className="ag-grupo-titulo" style={{ color: grupo.cor }}>
+            {grupo.label}
+          </span>
         </div>
-        <div className="aguinaldo-grupos-grid">
-          {Object.entries(grupos).map(([id, grupo]) => {
-            const count = obrasAtivas.filter((obra) => grupo.etapas.includes(obra.etapa)).length;
-            return (
-              <button
-                key={id}
-                className={`aguinaldo-grupo-btn ${subGrupo === id ? 'ativo' : ''}`}
-                style={{ borderLeft: `4px solid ${grupo.cor}` }}
-                onClick={() => setSubGrupo(subGrupo === id ? null : id)}
-              >
-                <span className="grupo-count">{count}</span>
-                <span className="grupo-label">{grupo.label}</span>
-              </button>
-            );
-          })}
+
+        <div className="ag-grupo-resumo">
+          {grupo.obras.length} obra(s) · {formatarValor(somarValores(grupo.obras))} em carteira
         </div>
-        {subGrupo && (
-          <div className="aguinaldo-obras-lista">
-            {obrasFiltradas.length ? obrasFiltradas.map((obra) => (
-              <button key={obra.id} className="aguinaldo-obra-row" onClick={() => navigate(`/obras/${obra.id}`)}>
-                <span className="fw-700">{obra.pp}</span>
-                <span className="text-muted">{obra.cliente}</span>
-                <span className="text-muted">{obra.responsavel}</span>
-                <span className="aguinaldo-obra-ver">Ver detalhes</span>
-              </button>
-            )) : <div className="empty-state">Nenhuma obra neste grupo.</div>}
+
+        {grupo.obras.length > 0 ? (
+          <div className="ag-obras-lista">
+            {grupo.obras.map((obra) => {
+              const prazo = calcPrazo(obra.prazo);
+              return (
+                <button
+                  key={obra.id}
+                  className="ag-obra-card"
+                  style={{ borderLeft: `4px solid ${grupo.cor}` }}
+                  onClick={() => navigate(`/obras/${obra.id}`)}
+                >
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+                    <span className="ag-obra-pp">{obra.pp}</span>
+                    <span className="ag-obra-cliente">{obra.cliente}</span>
+                    <span className="ag-obra-cidade">{obra.cidade}</span>
+                  </div>
+                  <span className={`badge ${prazo.classe}`}>{prazo.label}</span>
+                  <span className="ag-obra-valor">{formatarValor(obra.valor)}</span>
+                </button>
+              );
+            })}
           </div>
+        ) : (
+          <div className="empty-state">Nenhuma obra neste grupo.</div>
         )}
       </div>
     );
   }
-
-  if (secao === 'agenda') {
-    const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const semana = Array.from({ length: 5 }, (_, i) => {
-      const data = new Date();
-      const dia = data.getDay();
-      const diff = i - (dia === 0 ? -1 : dia - 1);
-      data.setDate(data.getDate() + diff);
-      return data.toISOString().split('T')[0];
+  if (secao === 'empresa') {
+    const meses = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+      return { val, label };
     });
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => setSecao('home')}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Agenda da Semana</div>
-        <div className="aguinaldo-agenda-semana">
-          {semana.map((data) => {
-            const atvsData = (atividades || []).filter((atividade) => atividade.data === data);
-            const [, mes, dia] = data.split('-');
-            const diaNome = diasSemana[new Date(`${data}T12:00:00`).getDay()];
-            return (
-              <div key={data} className="aguinaldo-dia-col">
-                <div className="aguinaldo-dia-header">
-                  <div className="aguinaldo-dia-nome">{diaNome}</div>
-                  <div className="aguinaldo-dia-data">{dia}/{mes}</div>
-                </div>
-                {atvsData.length ? atvsData.map((atividade, i) => (
-                  <div key={`${atividade.id || atividade.cliente}-${i}`} className="aguinaldo-evento">
-                    <div className="fw-700 fs-12">{atividade.tipo}</div>
-                    <div className="fs-11 text-muted">{atividade.cliente}</div>
-                    <div className="fs-11 text-muted">{atividade.cidade}</div>
-                  </div>
-                )) : <div className="aguinaldo-dia-vazio">Livre</div>}
-              </div>
-            );
-          })}
+        <div className="ag-grupo-header">
+          <button className="btn btn-secondary btn-sm" onClick={voltar}>Voltar</button>
+          <span className="ag-grupo-titulo" style={{ color: 'var(--azul)' }}>Financeiro</span>
         </div>
+
+        <select
+          value={mesSelecionado}
+          onChange={(e) => setMesSelecionado(e.target.value)}
+          style={{
+            background: 'white',
+            border: '1.5px solid var(--cinza-borda)',
+            borderRadius: 8,
+            padding: '10px 16px',
+            fontSize: 15,
+            fontWeight: 600,
+            color: 'var(--azul)',
+            cursor: 'pointer',
+            marginBottom: 20,
+            width: '100%',
+            maxWidth: 320,
+          }}
+        >
+          {meses.map((mes) => <option key={mes.val} value={mes.val}>{mes.label}</option>)}
+        </select>
+
+        <div className="aguinaldo-indicadores-grid">
+          <div className="aguinaldo-indicador" style={{ borderTop: '4px solid var(--verde)' }}>
+            <div className="aguinaldo-ind-valor valor" style={{ color: 'var(--verde)' }}>{formatarValor(dadosFinanceiros.totalVendas)}</div>
+            <div className="aguinaldo-ind-label">Vendas fechadas ({dadosFinanceiros.vendas.length} obra(s))</div>
+          </div>
+          <div className="aguinaldo-indicador" style={{ borderTop: '4px solid var(--azul-claro)' }}>
+            <div className="aguinaldo-ind-valor valor" style={{ color: 'var(--azul-claro)' }}>{formatarValor(dadosFinanceiros.totalProduzidas)}</div>
+            <div className="aguinaldo-ind-label">Obras produzidas ({dadosFinanceiros.produzidas.length} obra(s))</div>
+          </div>
+          <div className="aguinaldo-indicador">
+            <div className="aguinaldo-ind-valor">{obrasAtivas.length}</div>
+            <div className="aguinaldo-ind-label">Obras em andamento</div>
+          </div>
+          <div className="aguinaldo-indicador">
+            <div className="aguinaldo-ind-valor">{obrasFinalizadas.length}</div>
+            <div className="aguinaldo-ind-label">Total finalizadas</div>
+          </div>
+        </div>
+
+        {dadosFinanceiros.vendas.length > 0 && (
+          <div className="mt-16">
+            <div className="fs-11 fw-700 text-muted mb-8 uppercase">Vendas do mês</div>
+            {dadosFinanceiros.vendas.map((obra) => (
+              <button key={obra.id} className="aguinaldo-obra-row" onClick={() => navigate(`/obras/${obra.id}`)}>
+                <span className="fw-700">{obra.pp}</span>
+                <span>{obra.cliente}</span>
+                <span className="fw-700 fs-12 aguinaldo-obra-valor">{formatarValor(obra.valor)}</span>
+                <span className="aguinaldo-obra-ver">Ver</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className="aguinaldo-secao-titulo mt-24">Parecer para Álvaro</div>
+        <textarea
+          className="aguinaldo-parecer-input"
+          rows={3}
+          placeholder="Escreva um parecer ou observação estratégica..."
+          value={parecer}
+          onChange={(e) => setParecer(e.target.value)}
+        />
+        {parecer.trim() && <button className="aguinaldo-btn-empresa mt-8" onClick={enviarParecer}>Enviar parecer</button>}
       </div>
     );
   }
 
-  if (secao === 'empresa') {
-    const finalizadas = obrasTotais.filter((obra) => obra.etapa === 'finalizado').length;
-    const emInstalacao = obrasAtivas.filter((obra) => obra.etapa === 'instalacao').length;
-    const emCompras = obrasAtivas.filter((obra) => obra.etapa === 'compras').length;
+  if (secao === 'equipe') {
+    const limite = new Date(Date.now() - 86400000);
+    const eventos = obras
+      .flatMap((obra) => (obra.historico || []).map((h) => ({ ...h, obra })))
+      .filter((h) => {
+        if (!h.data) return false;
+        try {
+          const [d, m, a] = h.data.split('/');
+          return new Date(`${a}-${m}-${d}T${h.hora || '00:00'}:00`) > limite;
+        } catch {
+          return false;
+        }
+      })
+      .sort((a, b) => (b.hora || '').localeCompare(a.hora || ''));
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => setSecao('home')}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Empresa</div>
-        <div className="aguinaldo-indicadores-grid">
-          {[
-            { label: 'Obras em andamento', valor: obrasAtivas.length, cor: '#27AE60' },
-            { label: 'Obras finalizadas', valor: finalizadas, cor: '#1A3A5C' },
-            { label: 'Em instalação', valor: emInstalacao, cor: '#2980B9' },
-            { label: 'Em compras', valor: emCompras, cor: '#E67E22' },
-            { label: 'Com atenção', valor: obrasAtencao.length, cor: '#C0392B' },
-          ].map((ind) => (
-            <div key={ind.label} className="aguinaldo-indicador" style={{ borderTop: `4px solid ${ind.cor}` }}>
-              <div className="aguinaldo-ind-valor" style={{ color: ind.cor }}>{ind.valor}</div>
-              <div className="aguinaldo-ind-label">{ind.label}</div>
-            </div>
-          ))}
+        <div className="ag-grupo-header">
+          <button className="btn btn-secondary btn-sm" onClick={voltar}>Voltar</button>
+          <span className="ag-grupo-titulo" style={{ color: 'var(--azul)' }}>Equipe — últimas 24h</span>
         </div>
-
-        <div className="aguinaldo-secao-titulo mt-24">Situação da Equipe</div>
-        {['André', 'Matheus', 'Allana', 'Ana'].map((nome) => {
-          const obrasResp = obrasAtivas.filter((obra) => obra.responsavel === nome);
-          const atrasadas = obrasResp.filter((obra) => obra.prazo && new Date(`${obra.prazo}T00:00:00`) < new Date()).length;
-          return (
-            <div key={nome} className="aguinaldo-auditoria-card">
-              <div className="fw-700 fs-15">{nome}</div>
-              <div className="fs-13 text-muted mt-4">
-                {obrasResp.length - atrasadas} obra(s) em dia
-                {atrasadas > 0 && <span style={{ color: 'var(--vermelho)', marginLeft: 12 }}>{atrasadas} em atraso</span>}
-              </div>
+        {eventos.length ? eventos.slice(0, 30).map((evento, i) => (
+          <div key={`${evento.obra.id}-${i}`} className="acontecimento-item">
+            <div className="acontecimento-hora">{evento.hora || '--:--'}</div>
+            <div>
+              <div className="acontecimento-acao">{evento.acao}</div>
+              <div className="acontecimento-obra">{evento.obra.pp} - {evento.obra.cliente} - <span style={{ color: 'var(--azul-claro)' }}>{evento.usuario}</span></div>
             </div>
-          );
-        })}
-
-        <div className="aguinaldo-secao-titulo mt-24">Dar Parecer</div>
-        <textarea
-          className="aguinaldo-parecer-input"
-          value={parecer}
-          onChange={(e) => setParecer(e.target.value)}
-          placeholder="Escreva seu parecer ou observação estratégica. Será enviado para Álvaro."
-          rows={4}
-        />
-        {parecer.trim() && (
-          <button className="aguinaldo-btn-empresa mt-8" onClick={enviarParecer}>
-            Enviar parecer para Álvaro
-          </button>
-        )}
+          </div>
+        )) : <div className="empty-state">Nenhuma movimentação nas últimas 24h.</div>}
       </div>
     );
   }
@@ -295,21 +399,50 @@ export default function CentralAguinaldo() {
 
     return (
       <div className="aguinaldo-wrap">
-        <button className="aguinaldo-voltar" onClick={() => { setSecao('home'); setResposta(''); }}>Voltar</button>
-        <div className="aguinaldo-secao-titulo">Conversar com MAX</div>
-
-        {!resposta && !carregando && (
-          <div className="aguinaldo-sugestoes">
-            {sugestoes.map((sugestao) => (
-              <button key={sugestao} className="aguinaldo-sugestao-btn" onClick={() => fazerPergunta(sugestao)}>
-                {sugestao}
-              </button>
+        {insights.length > 0 && !resposta && !carregando && (
+          <div className="aguinaldo-secao mb-20">
+            <div className="aguinaldo-secao-titulo">Alertas da MAX</div>
+            {insights.map((insight) => (
+              <div key={insight.id} className="aguinaldo-alerta-card">
+                <div className={`aguinaldo-alerta-tipo tipo-${insight.tipo}`}>{insight.tipo}</div>
+                <div className="aguinaldo-alerta-corpo">
+                  <div className="aguinaldo-alerta-titulo">{insight.titulo}</div>
+                  <div className="aguinaldo-alerta-desc">{textoInsight(insight)}</div>
+                </div>
+                {insight.acao?.obraId && (
+                  <button className="aguinaldo-btn-ver" onClick={() => navigate(`/obras/${insight.acao.obraId}`)}>Ver</button>
+                )}
+              </div>
             ))}
           </div>
         )}
 
-        {carregando && <div className="aguinaldo-carregando"><div className="fs-14 text-muted mt-12">MAX está analisando...</div></div>}
+        {!resposta && !carregando && (
+          <div style={{ position: 'relative' }}>
+            <div className="aguinaldo-pergunta-input-wrap">
+              <input
+                value={pergunta}
+                onChange={(e) => setPergunta(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
+                onFocus={() => setMostrarSugestoes(true)}
+                onBlur={() => setTimeout(() => setMostrarSugestoes(false), 150)}
+                placeholder="Pergunte à MAX..."
+                className="aguinaldo-pergunta-input"
+                id="max-input"
+              />
+              <button className="aguinaldo-btn-perguntar" onClick={() => fazerPergunta()} disabled={!pergunta.trim()}>Perguntar</button>
+            </div>
+            {mostrarSugestoes && (
+              <div className="aguinaldo-sugestoes-dropdown">
+                {sugestoes.map((sugestao) => (
+                  <button key={sugestao} className="aguinaldo-sugestao-btn" onMouseDown={() => fazerPergunta(sugestao)}>{sugestao}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
+        {carregando && <div className="aguinaldo-carregando"><div className="fs-14 text-muted mt-12">MAX está analisando...</div></div>}
         {resposta && !carregando && (
           <div className="aguinaldo-resposta">
             <div className="aguinaldo-resposta-header">MAX</div>
@@ -317,24 +450,12 @@ export default function CentralAguinaldo() {
             <button className="aguinaldo-btn-nova mt-16" onClick={() => setResposta('')}>Nova pergunta</button>
           </div>
         )}
-
-        {!resposta && !carregando && (
-          <div className="aguinaldo-pergunta-input-wrap">
-            <input
-              value={pergunta}
-              onChange={(e) => setPergunta(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && fazerPergunta()}
-              placeholder="Digite sua pergunta..."
-              className="aguinaldo-pergunta-input"
-            />
-            <button className="aguinaldo-btn-perguntar" onClick={() => fazerPergunta()} disabled={!pergunta.trim()}>
-              Perguntar
-            </button>
-          </div>
-        )}
       </div>
     );
   }
+
+  if (secao === 'obras') return <CentralObras />;
+  if (secao === 'agenda') return <AgendaSemanal />;
 
   return null;
 }

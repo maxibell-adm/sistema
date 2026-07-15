@@ -222,6 +222,16 @@ export function ObrasProvider({ children }) {
       patch.cronograma = prazos;
       patch.prazo = prazos.projeto_final;
       patch.dataInicioProducao = agora.toISOString().slice(0, 10);
+      if (obra.condicaoEspecial?.ativa) {
+        gerarNotificacao({
+          para: 'Allana',
+          texto: `⚠ ${obra.pp} - ${obra.cliente} chegou para projeto com CONDIÇÃO ESPECIAL: ${obra.condicaoEspecial.texto}`,
+          tipo: 'atencao',
+          natureza: 'evento',
+          origem: usuario.nome,
+          obraId,
+        });
+      }
     }
 
     if (obra.etapa === 'projeto_final' && destino === 'compras') {

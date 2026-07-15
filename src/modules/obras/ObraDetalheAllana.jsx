@@ -58,7 +58,6 @@ export default function ObraDetalheAllana({ obra }) {
 
           <section className="próxima-acao detail-section">
             <h3>O que projetar</h3>
-            {obra.pendencia?.tipo === 'aviso_divisao' && obra.pendencia.aberta && <div className="badge badge-alerta mb-12">Matheus identificou possivel divisao nesta obra. Verifique.</div>}
             <div className="próxima-grid">
               <div className="próxima-etapa-main"><span>Tipo de projeto</span><b>{tipoProjeto}</b></div>
               <div><span>Prazo</span><Badge classe={prazo.classe}>{prazo.label}</Badge></div>

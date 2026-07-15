@@ -179,9 +179,10 @@ export default function ObraDetalhe() {
                     {podeEditarVhsys ? (
                       <input
                         className="vhsys-input"
-                        placeholder="NÂº do pedido"
-                        value={valorVhsys('vhsysEsquadria')}
+                        placeholder="Nº do pedido"
+                        value={valorVhsysDisplay('vhsysEsquadria')}
                         onChange={(e) => handleVhsysChange('vhsysEsquadria', e.target.value)}
+                        onBlur={() => handleVhsysBlur('vhsysEsquadria')}
                       />
                     ) : (
                       <div className="vhsys-numero">{obra.vhsysEsquadria || obra.vhsysPedidos?.[0] || 'Pendente'}</div>
@@ -193,7 +194,7 @@ export default function ObraDetalhe() {
                       {podeEditarVhsys ? (
                         <input
                           className="vhsys-input"
-                          placeholder="NÂº do contramarco"
+                          placeholder="Nº do contramarco"
                           value={valorVhsysDisplay('vhsysContramarco')}
                           onChange={(e) => handleVhsysChange('vhsysContramarco', e.target.value)}
                           onBlur={() => handleVhsysBlur('vhsysContramarco')}
