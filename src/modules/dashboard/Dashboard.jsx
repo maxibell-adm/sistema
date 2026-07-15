@@ -2843,251 +2843,323 @@ export default function Dashboard() {
     const listaAtivos = ordenarProjetos(projetosBase);
     const listaVencidos = ordenarProjetos(projetosVencidos);
     const listaFinalizados = projetosFinalizados;
+    const totalUrgente = listaVencidos.length;
+    const totalCondicao = projetosBase.filter((o) => o.condicaoEspecial?.ativa).length;
+    const saudacao = new Date().getHours() < 12 ? 'Bom dia' : new Date().getHours() < 18 ? 'Boa tarde' : 'Boa noite';
 
     return (
-      <>
-        <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-          <div style={{
-            flex: 1,
-            background: 'var(--branco)',
-            border: '1px solid var(--cinza-borda)',
-            borderRadius: 10,
-            padding: '12px 16px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 24, fontWeight: 800, color: 'var(--azul)' }}>
-              {projetosBase.length}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+        {/* ── HEADER PESSOAL ── */}
+        <div style={{
+          background: 'linear-gradient(135deg, #1A3A5C 0%, #2563EB 100%)',
+          borderRadius: 14,
+          padding: '20px 24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}>
+          <div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 4 }}>
+              {saudacao}, Allana
             </div>
-            <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>em andamento</div>
+            <div style={{ fontSize: 22, fontFamily: 'Montserrat,sans-serif', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
+              {listaAtivos.length === 0
+                ? 'Nenhum projeto em fila.'
+                : totalUrgente > 0
+                  ? `${totalUrgente} projeto${totalUrgente > 1 ? 's' : ''} com prazo vencido`
+                  : `${listaAtivos.length} projeto${listaAtivos.length > 1 ? 's' : ''} em andamento`}
+            </div>
+            {totalCondicao > 0 && (
+              <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                  background: '#FEF08A',
+                  color: '#713F12',
+                  fontSize: 10,
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: 99,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.4px',
+                }}>
+                  ⚠ {totalCondicao} com condição especial
+                </span>
+              </div>
+            )}
           </div>
-          <div style={{
-            flex: 1,
-            background: projetosVencidos.length > 0 ? '#FFF5F5' : 'var(--branco)',
-            border: `1px solid ${projetosVencidos.length > 0 ? '#FCA5A5' : 'var(--cinza-borda)'}`,
-            borderRadius: 10,
-            padding: '12px 16px',
-            textAlign: 'center',
-          }}>
-            <div style={{
-              fontFamily: 'Montserrat,sans-serif',
-              fontSize: 24,
-              fontWeight: 800,
-              color: projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-medio)',
-            }}>
-              {projetosVencidos.length}
-            </div>
-            <div style={{ fontSize: 11, color: projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-medio)' }}>
-              vencidos
-            </div>
-          </div>
-          <div style={{
-            flex: 1,
-            background: 'var(--branco)',
-            border: '1px solid var(--cinza-borda)',
-            borderRadius: 10,
-            padding: '12px 16px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 24, fontWeight: 800, color: 'var(--verde)' }}>
-              {projetosFinalizados.length}
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>finalizados</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => navigate('/biblioteca-projetos')}
+              style={{
+                background: 'rgba(255,255,255,.15)',
+                border: '1px solid rgba(255,255,255,.25)',
+                borderRadius: 8,
+                padding: '8px 14px',
+                color: '#fff',
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                backdropFilter: 'blur(4px)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              📁 Biblioteca
+            </button>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-          <div>
-            <div style={{
-              fontFamily: 'Montserrat,sans-serif',
-              fontSize: 11,
-              fontWeight: 800,
-              color: 'var(--azul)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: 10,
-              paddingBottom: 6,
-              borderBottom: '2px solid var(--azul)',
+        {/* ── MÉTRICAS ── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+          {[
+            {
+              label: 'Em andamento',
+              valor: projetosBase.length,
+              cor: '#2563EB',
+              bg: '#EFF6FF',
+              borda: '#BFDBFE',
+              icone: '🎯',
+            },
+            {
+              label: 'Vencidos',
+              valor: listaVencidos.length,
+              cor: listaVencidos.length > 0 ? '#DC2626' : '#6B7280',
+              bg: listaVencidos.length > 0 ? '#FEF2F2' : '#F9FAFB',
+              borda: listaVencidos.length > 0 ? '#FECACA' : '#E5E7EB',
+              icone: '🔴',
+            },
+            {
+              label: 'Finalizados',
+              valor: projetosFinalizados.length,
+              cor: '#16A34A',
+              bg: '#F0FDF4',
+              borda: '#BBF7D0',
+              icone: '✅',
+            },
+          ].map((m) => (
+            <div key={m.label} style={{
+              background: m.bg,
+              border: `1px solid ${m.borda}`,
+              borderRadius: 10,
+              padding: '14px 16px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
             }}>
-              Em andamento ({listaAtivos.length})
-            </div>
-            {listaAtivos.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--cinza-medio)', padding: '8px 0' }}>
-                Nenhum projeto em andamento.
+              <div style={{ fontSize: 10, color: m.cor, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                {m.icone} {m.label}
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {listaAtivos.map((obra) => {
-                  const prazoInfo = calcPrazo(obra.prazo);
-                  return (
-                    <button
-                      key={obra.id}
-                      onClick={() => navigate(`/obras/${obra.id}`)}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        background: 'var(--branco)',
-                        border: '1px solid var(--cinza-borda)',
-                        borderLeft: '4px solid var(--azul)',
-                        borderRadius: 8,
-                        padding: '10px 12px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        width: '100%',
-                        transition: '.15s',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                        <div>
-                          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
-                            {obra.pp}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)', marginTop: 2 }}>
-                            {obra.cliente}
-                          </div>
-                        </div>
-                        <span className={`badge ${prazoInfo.classe}`} style={{ fontSize: 9, flexShrink: 0 }}>
-                          {prazoInfo.label}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>
-                        {labelEtapa(obra.etapa)} · {obra.cidade}
-                      </div>
-                      {obra.condicaoEspecial?.ativa && (
+              <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 28, fontWeight: 800, color: m.cor, lineHeight: 1 }}>
+                {m.valor}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── FILA DE PROJETOS ── */}
+        {listaAtivos.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 2,
+            }}>
+              <div style={{
+                fontFamily: 'Montserrat,sans-serif',
+                fontSize: 11,
+                fontWeight: 800,
+                color: 'var(--azul)',
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+              }}>
+                Fila de projetos · ordenada por prazo
+              </div>
+              <div style={{ fontSize: 10, color: 'var(--cinza-medio)' }}>
+                {listaAtivos.length} projeto{listaAtivos.length > 1 ? 's' : ''}
+              </div>
+            </div>
+
+            {listaAtivos.map((obra, idx) => {
+              const prazoInfo = calcPrazo(obra.prazo);
+              const vencido = prazoInfo.classe === 'badge-vencido';
+              const urgente = prazoInfo.classe === 'badge-alerta';
+              const temCondicao = obra.condicaoEspecial?.ativa;
+
+              return (
+                <button
+                  key={obra.id}
+                  onClick={() => navigate(`/obras/${obra.id}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    background: vencido ? '#FEF2F2' : '#fff',
+                    border: `1px solid ${vencido ? '#FECACA' : urgente ? '#FED7AA' : 'var(--cinza-borda)'}`,
+                    borderLeft: `4px solid ${vencido ? '#DC2626' : urgente ? '#EA580C' : '#2563EB'}`,
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                    transition: 'box-shadow .15s',
+                  }}
+                >
+                  {/* Posição na fila */}
+                  <div style={{
+                    width: 24,
+                    height: 24,
+                    borderRadius: '50%',
+                    background: vencido ? '#DC2626' : '#2563EB',
+                    color: '#fff',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    fontFamily: 'Montserrat,sans-serif',
+                  }}>
+                    {idx + 1}
+                  </div>
+
+                  {/* Info principal */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{
+                        fontFamily: 'Montserrat,sans-serif',
+                        fontSize: 9,
+                        fontWeight: 800,
+                        color: vencido ? '#DC2626' : 'var(--cinza-medio)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.4px',
+                      }}>
+                        {obra.pp}
+                      </span>
+                      {temCondicao && (
                         <span style={{
-                          background: '#FEF3C7',
-                          color: '#92400E',
-                          fontSize: 9,
-                          fontWeight: 700,
-                          padding: '2px 6px',
+                          background: '#FEF08A',
+                          color: '#713F12',
+                          fontSize: 8,
+                          fontWeight: 800,
+                          padding: '1px 5px',
                           borderRadius: 3,
-                          alignSelf: 'flex-start',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.3px',
                         }}>
-                          ⚠ Condição especial
+                          ⚠ Cond. especial
                         </span>
                       )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div style={{
-              fontFamily: 'Montserrat,sans-serif',
-              fontSize: 11,
-              fontWeight: 800,
-              color: projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-medio)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: 10,
-              paddingBottom: 6,
-              borderBottom: `2px solid ${projetosVencidos.length > 0 ? 'var(--vermelho)' : 'var(--cinza-borda)'}`,
-            }}>
-              Vencidos ({listaVencidos.length})
-            </div>
-            {listaVencidos.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--verde)', padding: '8px 0' }}>
-                ✅ Nenhum projeto vencido.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {listaVencidos.map((obra) => {
-                  const prazoInfo = calcPrazo(obra.prazo);
-                  return (
-                    <button
-                      key={obra.id}
-                      onClick={() => navigate(`/obras/${obra.id}`)}
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 4,
-                        background: '#FFF5F5',
-                        border: '1px solid #FCA5A5',
-                        borderLeft: '4px solid var(--vermelho)',
-                        borderRadius: 8,
-                        padding: '10px 12px',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        width: '100%',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                        <div>
-                          <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 10, fontWeight: 800, color: 'var(--vermelho)', textTransform: 'uppercase' }}>
-                            {obra.pp}
-                          </div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--vermelho)', marginTop: 2 }}>
-                            {obra.cliente}
-                          </div>
-                        </div>
-                        <span className="badge badge-vencido" style={{ fontSize: 9, flexShrink: 0 }}>
-                          {prazoInfo.label}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: 11, color: '#DC2626' }}>
-                        {labelEtapa(obra.etapa)} · {obra.cidade}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {projetosFinalizados.length > 0 && (
-          <div style={{ marginTop: 8 }}>
-            <details>
-              <summary style={{
-                fontSize: 12,
-                color: 'var(--cinza-medio)',
-                cursor: 'pointer',
-                padding: '8px 0',
-                listStyle: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-              }}>
-                <span>▶</span>
-                <span>{projetosFinalizados.length} projeto(s) finalizado(s)</span>
-              </summary>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-                {listaFinalizados.map((obra) => (
-                  <button
-                    key={obra.id}
-                    onClick={() => navigate(`/obras/${obra.id}`)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      background: 'var(--cinza-claro)',
-                      border: '1px solid var(--cinza-borda)',
-                      borderRadius: 8,
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      textAlign: 'left',
-                      width: '100%',
-                      opacity: 0.7,
-                    }}
-                  >
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--cinza-escuro)' }}>{obra.pp}</span>
-                      <span style={{ fontSize: 11, color: 'var(--cinza-medio)', marginLeft: 6 }}>{obra.cliente}</span>
                     </div>
-                    <span className="badge badge-ok" style={{ fontSize: 9 }}>Finalizado</span>
-                  </button>
-                ))}
-              </div>
-            </details>
+                    <div style={{
+                      fontSize: 13,
+                      fontWeight: 700,
+                      color: vencido ? '#DC2626' : 'var(--azul)',
+                      marginTop: 1,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}>
+                      {obra.cliente}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--cinza-medio)', marginTop: 2 }}>
+                      {labelEtapa(obra.etapa)} · {obra.cidade}
+                    </div>
+                  </div>
+
+                  {/* Prazo */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <span className={`badge ${prazoInfo.classe}`} style={{ fontSize: 9 }}>
+                      {prazoInfo.label}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--cinza-medio)' }}>›</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
 
-        {projetosBase.length === 0 && projetosVencidos.length === 0 && (
-          <div className="empty-state">Nenhum projeto em andamento.</div>
+        {/* ── FINALIZADOS (colapsável) ── */}
+        {listaFinalizados.length > 0 && (
+          <details style={{ marginTop: -4 }}>
+            <summary style={{
+              fontSize: 11,
+              color: 'var(--cinza-medio)',
+              cursor: 'pointer',
+              padding: '10px 0',
+              listStyle: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              userSelect: 'none',
+            }}>
+              <span style={{
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: 'var(--cinza-claro)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 9,
+                fontWeight: 700,
+                color: 'var(--cinza-medio)',
+              }}>
+                {listaFinalizados.length}
+              </span>
+              <span>projeto{listaFinalizados.length > 1 ? 's' : ''} finalizado{listaFinalizados.length > 1 ? 's' : ''}</span>
+            </summary>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+              {listaFinalizados.map((obra) => (
+                <button
+                  key={obra.id}
+                  onClick={() => navigate(`/obras/${obra.id}`)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    background: '#F9FAFB',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: 8,
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    width: '100%',
+                    opacity: 0.75,
+                  }}
+                >
+                  <span style={{ fontSize: 10, fontWeight: 700, color: '#6B7280' }}>✓</span>
+                  <div style={{ flex: 1 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#374151' }}>{obra.pp}</span>
+                    <span style={{ fontSize: 11, color: '#9CA3AF', marginLeft: 6 }}>{obra.cliente}</span>
+                  </div>
+                  <span className="badge badge-ok" style={{ fontSize: 9 }}>Finalizado</span>
+                </button>
+              ))}
+            </div>
+          </details>
         )}
-      </>
+
+        {/* ── ESTADO VAZIO ── */}
+        {projetosBase.length === 0 && projetosVencidos.length === 0 && (
+          <div style={{
+            textAlign: 'center',
+            padding: '40px 20px',
+            background: '#F9FAFB',
+            borderRadius: 12,
+            border: '1px dashed #D1D5DB',
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🎉</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#374151', marginBottom: 4 }}>
+              Tudo em dia!
+            </div>
+            <div style={{ fontSize: 12, color: '#9CA3AF' }}>
+              Nenhum projeto aguardando na fila.
+            </div>
+          </div>
+        )}
+      </div>
     );
   }
 

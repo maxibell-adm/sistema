@@ -487,12 +487,14 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
           texto: `${obra.pp} — pendência de projeto vencida há ${atraso} dias: ${obra.pendencia.tipo}`,
           tipo: 'bloqueio',
           obraId,
+        natureza: 'estado',
         });
         notificar({
           para: alvaro,
           texto: `Pendência de projeto vencida em ${obra.pp} — ${obra.cliente}. Responsável: ${obra.pendencia.responsavel}`,
           tipo: 'bloqueio',
           obraId,
+        natureza: 'estado',
         });
       }
     }
@@ -500,8 +502,12 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     const diasCriacao = diasDesdeOperacional(obra.criadoEm);
     // [FIREBASE] Migra para Cloud Function agendada as 18h de quartas-feiras
     if (obra.etapa === 'pedido_inicial' && !obra.vhsysEsquadria?.trim() && diasCriacao > 2 && podeNotificar('vhsys_vazio', obraId, diasCriacao, 3, true)) {
-      notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: VHSYS não preenchido há ${diasCriacao} dias`, tipo: 'bloqueio', obraId });
-      notificar({ para: alvaro, texto: `VHSYS pendente há ${diasCriacao} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'bloqueio', obraId });
+      notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: VHSYS não preenchido há ${diasCriacao} dias`, tipo: 'bloqueio', obraId ,
+          natureza: 'estado',
+        });
+      notificar({ para: alvaro, texto: `VHSYS pendente há ${diasCriacao} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'bloqueio', obraId ,
+          natureza: 'estado',
+        });
     }
 
     if (obra.etapa === 'compras') {
@@ -510,8 +516,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
       if (vidro?.dataPedido && diasVidro > 7 && vidro.status !== 'ok' && podeNotificar('vidro_atraso', obraId, diasVidro, 3, true)) {
         const texto = `${obra.pp}: vidro pedido há ${diasVidro} dias sem confirmação de entrega`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
       }
 
       const acessorios = obra.compras?.acessorios;
@@ -519,8 +525,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
       if (acessorios?.dataPedido && diasAcessorios > 10 && acessorios.status !== 'ok' && podeNotificar('acess_atraso', obraId, diasAcessorios, 3, true)) {
         const texto = `${obra.pp}: acessórios pedidos há ${diasAcessorios} dias sem confirmação`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
       }
 
       const perfil = obra.compras?.perfil;
@@ -528,16 +534,16 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
       if (perfil?.dataPedido && diasPerfil > 10 && perfil.status !== 'ok' && podeNotificar('perfil_atraso', obraId, diasPerfil, 3, true)) {
         const texto = `${obra.pp}: perfil pedido há ${diasPerfil} dias sem confirmação`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
       }
 
       const diasAgenda = diasAteOperacional(obra.dataAgendada);
       // [FIREBASE] Migra para Cloud Function agendada as 18h de quartas-feiras
       if (obra.dataAgendada && diasAgenda !== null && diasAgenda <= 7 && podeNotificar('conflito_agenda', obraId, Math.max(0, 7 - diasAgenda), 3, true)) {
         const texto = `CONFLITO: ${obra.pp} tem instalação em ${obra.dataAgendada} mas ainda está em Compras`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId });
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId });
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId , natureza: 'estado'});
       }
     }
 
@@ -552,12 +558,14 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         texto: `${obra.pp} — ${labelEtapa(obra.etapa)} parada há ${diasNaEtapa} dias (prazo: ${prazoEtapa} dias)`,
         tipo: 'urgente',
         obraId,
+      natureza: 'estado',
       });
       notificar({
         para: alvaro,
         texto: `${obra.pp} — ${obra.cliente}: ${labelEtapa(obra.etapa)} em atraso há ${diasNaEtapa} dias`,
         tipo: 'urgente',
         obraId,
+      natureza: 'estado',
       });
     }
 
@@ -568,13 +576,14 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         texto: `${obra.pp} — ${obra.cliente}: em ${labelEtapa(obra.etapa)} há ${diasNaEtapa} dias sem agendamento`,
         tipo: 'urgente',
         obraId,
+      natureza: 'estado',
       });
     }
 
     if (obra.etapa === 'instalacao' && obra.instalacaoIniciada && (!obra.visitas || obra.visitas.length === 0) && diasNaEtapa > 3 && podeNotificar('sem_visita', obraId, diasNaEtapa, 4)) {
       const texto = `${obra.pp}: instalação iniciada há ${diasNaEtapa} dias sem nenhuma visita registrada`;
-      notificar({ para: andre, texto, tipo: 'urgente', obraId });
-      notificar({ para: alvaro, texto, tipo: 'urgente', obraId });
+      notificar({ para: andre, texto, tipo: 'urgente', obraId , natureza: 'estado'});
+      notificar({ para: alvaro, texto, tipo: 'urgente', obraId , natureza: 'estado'});
     }
 
     const visitas = obra.visitas || [];
@@ -584,8 +593,8 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       const diasPendente = diasDesdeOperacional(ultimaVisita.data || ultimaVisita.registradoEm);
       if (diasPendente > 5 && podeNotificar('visita_pendente', obraId, diasPendente, 4)) {
         const texto = `${obra.pp}: pendente na instalação há ${diasPendente} dias: '${ultimaVisita.pendente}'`;
-        notificar({ para: andre, texto, tipo: 'urgente', obraId });
-        notificar({ para: alvaro, texto, tipo: 'urgente', obraId });
+        notificar({ para: andre, texto, tipo: 'urgente', obraId , natureza: 'estado'});
+        notificar({ para: alvaro, texto, tipo: 'urgente', obraId , natureza: 'estado'});
       }
     }
 
@@ -593,8 +602,12 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       const ultimaVisita = visitas[visitas.length - 1];
       const diasUltimaVisita = ultimaVisita ? diasDesdeOperacional(ultimaVisita.data || ultimaVisita.registradoEm) : null;
       if (diasNaEtapa > 5 && (!visitas.length || diasUltimaVisita > 5) && podeNotificar('manut_sem_visita', obraId, diasNaEtapa, 4)) {
-        notificar({ para: matheus, texto: `${obra.pp} — ${obra.cliente}: manutenção aguardando triagem há ${diasNaEtapa} dias`, tipo: 'urgente', obraId });
-        notificar({ para: alvaro, texto: `Manutenção sem triagem há ${diasNaEtapa} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'urgente', obraId });
+        notificar({ para: matheus, texto: `${obra.pp} — ${obra.cliente}: manutenção aguardando triagem há ${diasNaEtapa} dias`, tipo: 'urgente', obraId ,
+          natureza: 'estado',
+        });
+        notificar({ para: alvaro, texto: `Manutenção sem triagem há ${diasNaEtapa} dias: ${obra.pp} — ${obra.cliente}`, tipo: 'urgente', obraId ,
+          natureza: 'estado',
+        });
       }
     }
 
@@ -604,6 +617,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         texto: `${obra.pp} — ${obra.cliente}: ${obra.manutencoes.length}ª manutenção registrada. Avaliar causa raiz.`,
         tipo: 'aviso',
         obraId,
+      natureza: 'estado',
       });
     }
 
@@ -613,6 +627,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         texto: `${obra.pp} — ${labelEtapa(obra.etapa)}: sem movimentação há ${diasNaEtapa} dias`,
         tipo: 'aviso',
         obraId,
+      natureza: 'estado',
       });
     }
   });
@@ -628,6 +643,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
           texto: `Follow-up pendente há ${diasLembrete} dias: ${lembrete.titulo}. Registrar contato com o cliente.`,
           tipo: 'aviso',
           obraId: lembrete.obraId || null,
+        natureza: 'estado',
         });
       }
       if (diasLembrete > 45 && podeNotificar('followup45', lembreteId, diasLembrete, 3)) {
@@ -636,6 +652,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
           texto: `Follow-up de ${diasLembrete} dias sem conclusão: ${lembrete.titulo}. Verificar com Ana.`,
           tipo: 'aviso',
           obraId: lembrete.obraId || null,
+        natureza: 'estado',
         });
       }
     });
@@ -652,22 +669,26 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     const cidades = [...new Set(itens.map((item) => item.cidade).filter(Boolean))];
     if (cidades.length > 1 && chaveUnica(`maxibell.notif.cidades_matheus.${data}`)) {
       const cidadesTexto = textoListaCidades(cidades);
-      notificar({ para: matheus, texto: `Você tem atividades em cidades diferentes no dia ${data}: ${cidadesTexto}. Confirmar logística.`, tipo: 'aviso', obraId: null });
-      notificar({ para: alvaro, texto: `Matheus está agendado em ${cidadesTexto} no mesmo dia (${data}).`, tipo: 'aviso', obraId: null });
+      notificar({ para: matheus, texto: `Você tem atividades em cidades diferentes no dia ${data}: ${cidadesTexto}. Confirmar logística.`, tipo: 'aviso', obraId: null ,
+          natureza: 'estado',
+        });
+      notificar({ para: alvaro, texto: `Matheus está agendado em ${cidadesTexto} no mesmo dia (${data}).`, tipo: 'aviso', obraId: null ,
+          natureza: 'estado',
+        });
     }
   });
 
   if (diaSemana >= 1 && diaSemana <= 5) {
     const temMontagemEmAndamento = obras.some((obra) => obra.etapa === 'montagem' && obra.montagemIniciada === true);
     if (!temMontagemEmAndamento && chaveUnica(`maxibell.notif.fabrica_parada.${hoje}`)) {
-      notificar({ para: alvaro, texto: 'Fábrica sem nenhuma montagem em andamento hoje. Verificar com André.', tipo: 'aviso', obraId: null });
+      notificar({ para: alvaro, texto: 'Fábrica sem nenhuma montagem em andamento hoje. Verificar com André.', tipo: 'aviso', obraId: null , natureza: 'estado'});
     }
   }
 
   const proximosTresDias = [1, 2, 3].map(dataIsoMaisDias);
   const temInstalacaoProxima = (atividades || []).some((atividade) => atividadeEInstalacao(atividade) && proximosTresDias.includes(atividade.data));
   if (!temInstalacaoProxima && chaveUnica(`maxibell.notif.sem_instalacao.${hoje}`)) {
-    notificar({ para: alvaro, texto: 'Nenhuma instalação agendada para os próximos 3 dias.', tipo: 'aviso', obraId: null });
+    notificar({ para: alvaro, texto: 'Nenhuma instalação agendada para os próximos 3 dias.', tipo: 'aviso', obraId: null , natureza: 'estado'});
   }
 
   obras.forEach((obra) => {
@@ -683,6 +704,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
           tipo: 'critico',
           cor: 'var(--vermelho)',
           obraId,
+        natureza: 'estado',
         });
         notificar({
           para: alvaro,
@@ -690,6 +712,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
           tipo: 'urgente',
           cor: 'var(--vermelho)',
           obraId,
+        natureza: 'estado',
         });
       }
     }
@@ -707,6 +730,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         tipo: 'urgente',
         cor: 'var(--laranja)',
         obraId: obra.id,
+      natureza: 'estado',
       });
       notificar({
         para: alvaro,
@@ -714,6 +738,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         tipo: 'urgente',
         cor: 'var(--laranja)',
         obraId: obra.id,
+      natureza: 'estado',
       });
     }
   });
@@ -731,6 +756,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         tipo: 'urgente',
         cor: 'var(--laranja)',
         obraId: obra.id,
+      natureza: 'estado',
       });
     }
   });
@@ -744,12 +770,14 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       texto: `Produção baixa: ${producaoIniciada} montagem ativa. Disponíveis para iniciar: ${listaMontagem}${montagemNaoIniciada.length > 3 ? ` e mais ${montagemNaoIniciada.length - 3}` : ''}.`,
       tipo: 'urgente',
       cor: 'var(--laranja)',
+    natureza: 'estado',
     });
     notificar({
       para: alvaro,
       texto: `Fábrica com produção baixa: ${producaoIniciada} montagem ativa, ${montagemNaoIniciada.length} disponível(is).`,
       tipo: 'urgente',
       cor: 'var(--laranja)',
+    natureza: 'estado',
     });
   }
 
@@ -760,8 +788,12 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     const obraId = obra.id || obra.pp;
     const diasPronta = Math.floor((Date.now() - new Date(obra.atualizadoEm || obra.criadoEm).getTime()) / 86400000);
     if (diasPronta >= 10 && podeNotificar('pronta_sem_inicio', obraId, diasPronta, 3)) {
-      notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: pronta para instalação há ${diasPronta} dias sem início registrado.`, tipo: 'critico', cor: 'var(--vermelho)', obraId: obra.id });
-      notificar({ para: alvaro, texto: `${obra.pp} — ${obra.cliente}: aguardando início de instalação há ${diasPronta} dias.`, tipo: 'urgente', cor: 'var(--vermelho)', obraId: obra.id });
+      notificar({ para: andre, texto: `${obra.pp} — ${obra.cliente}: pronta para instalação há ${diasPronta} dias sem início registrado.`, tipo: 'critico', cor: 'var(--vermelho)', obraId: obra.id ,
+          natureza: 'estado',
+        });
+      notificar({ para: alvaro, texto: `${obra.pp} — ${obra.cliente}: aguardando início de instalação há ${diasPronta} dias.`, tipo: 'urgente', cor: 'var(--vermelho)', obraId: obra.id ,
+          natureza: 'estado',
+        });
     }
   });
 
@@ -782,6 +814,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         tipo: 'critico',
         cor: 'var(--vermelho)',
         obraId: obra.id,
+      natureza: 'estado',
       });
       notificar({
         para: alvaro,
@@ -789,6 +822,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         tipo: 'critico',
         cor: 'var(--vermelho)',
         obraId: obra.id,
+      natureza: 'estado',
       });
     }
   });
@@ -807,6 +841,7 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
         tipo: 'urgente',
         cor: 'var(--laranja)',
         obraId: obra.id,
+      natureza: 'estado',
       });
     }
   });
@@ -817,13 +852,13 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       texto: 'Nenhuma obra disponível para instalação no momento.',
       tipo: 'atencao',
       cor: 'var(--azul)',
-    });
+    , natureza: 'estado'});
     notificar({
       para: alvaro,
       texto: 'Fila de instalação vazia — nenhuma obra disponível.',
       tipo: 'atencao',
       cor: 'var(--azul)',
-    });
+    , natureza: 'estado'});
   }
 
   // Notificar Alvaro as 9h+ se alguem nao leu o briefing

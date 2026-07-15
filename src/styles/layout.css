@@ -274,15 +274,12 @@
   color: var(--verde);
 }
 
-.notif-secao-label {
-  font-size: 10px;
+.notif-origem {
+  font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--cinza-medio);
-  padding: 8px 16px 4px;
   font-family: 'Montserrat', sans-serif;
-}
-.notif-item.tratada {
-  opacity: 0.5;
+  margin-bottom: 2px;
 }
