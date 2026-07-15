@@ -976,6 +976,7 @@ export default function Dashboard() {
     const temUrgencias = urgenciasAmanha.length > 0;
     const manutAguardando = lerArrayLocalStorage('maxibell.manutencao.aguardando_ana')
       .filter((m) => m.status === 'aguardando');
+    const temConfirmacoePendente = manutAguardando.length > 0;
     const followupsPendentes = (() => {
       const lembretesApp = lerArrayLocalStorage('maxibell.lembretes.app');
       return lembretesApp.filter((l) => l.titulo?.includes('Follow-up') && !l.concluido && l.responsavel === usuario.nome);
