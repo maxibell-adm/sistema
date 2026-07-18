@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { ITENS_COMPRA, comprasPadrao, etapaInicial } from '@/config/constantes.js';
+import { STATUS_COMPRAS_LABEL, comprasPadrao, etapaInicial } from '@/config/constantes.js';
 import { ETAPA_INICIAL_OC, ETAPAS, SEQUENCIA_OC, labelEtapa, proximaEtapaDepoisPedidoInicial, responsavelDaEtapa } from '@/config/etapas.js';
 import { podeAvancarEtapa, usuarioPorRole } from '@/config/usuarios.js';
-import { OBRAS_EXEMPLO } from '@/modules/obras/obrasData.js';
+import { OBRAS_REAIS } from '@/modules/obras/obrasData.js';
+import { verificarExpiracoes } from '@/modules/contratos/contratosService.js';
 import { useApp } from '@/modules/layout/AppContext.jsx';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { addDias, calcularPrazo, calcularPrazoOC } from '@/rules/prazosRules.js';
@@ -20,10 +21,12 @@ function formatarHora(data) {
 }
 
 function comprasOk(obra) {
-  return ITENS_COMPRA.filter((item) => !item.id.endsWith('_separacao')).every((item) => {
-    const status = obra.compras?.[item.id]?.status;
-    return status === 'ok';
-  });
+  const c = obra.compras;
+  if (!c) return false;
+  const perfisOk = c.perfis?.status === 'finalizado';
+  const acessoriosOk = c.acessorios?.status === 'finalizado';
+  const vidrosOk = ['finalizado', 'vidro_dispensado'].includes(c.vidros?.status);
+  return perfisOk && acessoriosOk && vidrosOk;
 }
 
 function prazoPorEtapa(novaEtapa, obra = {}, dataBase = new Date()) {
@@ -71,18 +74,47 @@ function horaAgora() {
 }
 
 export function ObrasProvider({ children }) {
-  const [obras, setObras] = useState(OBRAS_EXEMPLO);
+  const [obras, setObras] = useState(() => {
+    try {
+      const salvas = localStorage.getItem('maxibell.firestore.obras');
+      if (salvas) return JSON.parse(salvas);
+      localStorage.setItem('maxibell.firestore.obras', JSON.stringify(OBRAS_REAIS));
+      return OBRAS_REAIS;
+    } catch {
+      localStorage.removeItem('maxibell.firestore.obras');
+      localStorage.setItem('maxibell.firestore.obras', JSON.stringify(OBRAS_REAIS));
+      return OBRAS_REAIS;
+    }
+  });
   const { gerarNotificacao, mostrarToast, atividades } = useApp();
   const { usuario } = useAuth();
+  const modoImplantacao = localStorage.getItem('maxibell.modoImplantacao') !== 'false';
 
   useEffect(() => {
+    verificarExpiracoes(obras);
     verificarPrazosOC(obras, gerarNotificacao);
     verificarComunicacoesOperacionais(obras, atividades, gerarNotificacao);
-  }, [obras, atividades, gerarNotificacao]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obras.length, atividades.length]);
 
   function atualizarObra(id, patch) {
     setObras((atuais) => atuais.map((obra) => (obra.id === id ? { ...obra, ...patch, atualizadoEm: new Date().toISOString() } : obra)));
     // FIREBASE: substituir por updateDoc(doc(db, 'obras', id), patch).
+  }
+
+  function desativarModoImplantacao() {
+    localStorage.setItem('maxibell.modoImplantacao', 'false');
+    let obrasSalvas = obras;
+    try {
+      const parsed = JSON.parse(localStorage.getItem('maxibell.firestore.obras') || '[]');
+      if (Array.isArray(parsed) && parsed.length) obrasSalvas = parsed;
+    } catch {
+      obrasSalvas = obras;
+    }
+    const limpas = obrasSalvas.map((obra) => ({ ...obra, modoImplantacao: false }));
+    localStorage.setItem('maxibell.firestore.obras', JSON.stringify(limpas));
+    setObras(limpas);
+    mostrarToast('Modo de implantação desativado. Sistema em operação normal.', 'success');
   }
 
   function criarObra(dados) {
@@ -104,6 +136,11 @@ export function ObrasProvider({ children }) {
       fechamento: dados.fechamento,
       valor: dados.valor,
       pagamento: dados.pagamento,
+      cpf: dados.cpf,
+      endereco: dados.endereco,
+      temContrato: !!dados.temContrato,
+      pedidoGenerico: !!dados.pedidoGenerico,
+      precadastroPP: dados.precadastroPP || null,
       obs: dados.obs,
       compras: comprasPadrao(),
       historico: [...historicoInicial, { data: formatarData(agora), hora: formatarHora(agora), usuario: usuario.nome, acao: 'Obra cadastrada', desc: 'Criada pelo formulário Nova Obra.', tipo: 'criacao' }],
@@ -156,14 +193,20 @@ export function ObrasProvider({ children }) {
       };
       const responsavel = RESPONSAVEL_ETAPA[destino] ?? responsavelDaEtapa(destino);
       const novoPrazo = calcularPrazoOC(obra.ocorrenciaTipo, destino, agora);
-
-      atualizarObra(obraId, {
+      const patchOC = {
         etapa: destino,
         responsavel,
         prazo: novoPrazo,
         prazoProrrogavel: false,
         historico: [...(obra.historico || []), evento],
-      });
+      };
+      if (destino === 'compras') {
+        const comprasOC = obra.compras && Object.keys(obra.compras).length ? { ...obra.compras } : comprasPadrao();
+        comprasOC.dataLiberacao = agora.toISOString().split('T')[0];
+        patchOC.compras = comprasOC;
+      }
+
+      atualizarObra(obraId, patchOC);
 
       if (responsavel) {
         gerarNotificacao({
@@ -190,8 +233,21 @@ export function ObrasProvider({ children }) {
         return { ok: false, erro: `Existem ${ocorrenciasAbertas.length} ocorrencia(s) em aberto. Resolva todas antes de finalizar a instalacao.` };
       }
     }
+    if (obra.etapa === 'montagem' && destino === 'compras') {
+      const temOCAberta = (obra.ocorrencias || []).some(
+        (oc) => oc.status !== 'resolvida' &&
+          ['falta_material', 'erro_projeto', 'erro_medicao'].includes(oc.tipo)
+      );
+      const isAdmin = usuario?.role === 'admin';
+      if (!temOCAberta && !isAdmin) {
+        return {
+          ok: false,
+          erro: 'Não é possível retornar para Compras sem uma Ocorrência de material aberta ou autorização do administrador.',
+        };
+      }
+    }
     if (obra.etapa === 'compras' && destino === 'montagem' && !comprasOk(obra)) {
-      return { ok: false, erro: 'Todas as compras precisam estar com status OK antes de avançar.' };
+      return { ok: false, erro: 'Perfis, acessórios e vidros precisam estar finalizados antes de avançar.' };
     }
 
     const agora = new Date();
@@ -235,7 +291,9 @@ export function ObrasProvider({ children }) {
     }
 
     if (obra.etapa === 'projeto_final' && destino === 'compras') {
-      patch.compras = comprasPadrao();
+      const padrao = comprasPadrao();
+      padrao.dataLiberacao = agora.toISOString().split('T')[0];
+      patch.compras = padrao;
       patch.prazo = cronograma.compras || prazoPorEtapa('compras', obra, agora);
     }
 
@@ -413,6 +471,10 @@ export function ObrasProvider({ children }) {
     }
 
     const etapaInicialOC = ETAPA_INICIAL_OC[dadosOcorrencia.tipo];
+    const comprasOC = ['erro_projeto', 'erro_medicao'].includes(dadosOcorrencia.tipo) ? {} : comprasPadrao();
+    if (etapaInicialOC === 'compras' && comprasOC.dataLiberacao !== undefined) {
+      comprasOC.dataLiberacao = agora.toISOString().split('T')[0];
+    }
     const responsavelInicial = {
       falta_material: 'Andr\u00e9',
       erro_montagem: 'Andr\u00e9',
@@ -445,7 +507,7 @@ export function ObrasProvider({ children }) {
         tipo: 'criacao_oc',
       }],
       arquivos: [],
-      compras: ['erro_projeto', 'erro_medicao'].includes(dadosOcorrencia.tipo) ? {} : comprasPadrao(),
+      compras: comprasOC,
       ocorrencias: [],
       pendencias: [],
       criadoEm: agora.toISOString(),
@@ -597,12 +659,112 @@ export function ObrasProvider({ children }) {
     return { ok: true };
   }
 
-  function atualizarCompra(obraId, item, patch) {
+  function atualizarCompra(obraId, categoria, patch, meta = {}) {
     const obra = obras.find((o) => o.id === obraId);
     if (!obra) return;
-    atualizarObra(obraId, { compras: { ...obra.compras, [item]: { ...obra.compras[item], ...patch } } });
-    mostrarToast('Checklist de compras atualizado.', 'success');
-    // FIREBASE: atualizar campo compras.<item>.
+
+    const agora = new Date();
+    const compraAtual = obra.compras?.[categoria] || {};
+    const autor = meta.autor || usuario?.nome || 'Usuário';
+    const evidencia = meta.evidenciaBase64 ? {
+      nome: meta.nomeArquivo || `evidencia_${Date.now()}`,
+      tipo: meta.categoriaEvidencia || 'Comprovante',
+      dataHora: agora.toISOString(),
+      autor,
+      conteudo_base64: meta.evidenciaBase64,
+    } : null;
+    const eventoHistorico = patch.status && patch.status !== compraAtual.status ? {
+      tipo: 'STATUS_ALTERADO',
+      statusAnterior: compraAtual.status,
+      statusNovo: patch.status,
+      autor,
+      dataHora: agora.toISOString(),
+      obs: patch.obs || '',
+      evidenciaAnexada: !!evidencia,
+      categoriaEvidencia: meta.categoriaEvidencia || null,
+    } : null;
+    const novoArquivo = evidencia ? {
+      nome: evidencia.nome,
+      tipo: 'evidencia_compra',
+      tamanho: 'upload',
+      data: agora.toLocaleDateString('pt-BR'),
+      quem: evidencia.autor,
+      etapa: 'compras',
+      categoria,
+      destaque: false,
+      url: null,
+      conteudo_base64: evidencia.conteudo_base64,
+    } : null;
+    const compraAtualizada = {
+      ...compraAtual,
+      ...Object.fromEntries(Object.entries(patch).filter(([, valor]) => valor !== undefined)),
+      ...(patch.status === 'separacao_concluida' && !compraAtual.dataSeparacao
+        ? { dataSeparacao: agora.toISOString().split('T')[0] }
+        : {}),
+      evidencias: evidencia
+        ? [...(compraAtual.evidencias || []), evidencia]
+        : (compraAtual.evidencias || []),
+      historico: eventoHistorico
+        ? [...(compraAtual.historico || []), eventoHistorico]
+        : (compraAtual.historico || []),
+    };
+    const labelsCategoria = { perfis: 'Perfis', acessorios: 'Acessórios', vidros: 'Vidros' };
+    const eventoGeral = eventoHistorico ? {
+      data: agora.toLocaleDateString('pt-BR'),
+      hora: agora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+      usuario: autor,
+      acao: `Compras — ${labelsCategoria[categoria] || categoria}`,
+      desc: `${STATUS_COMPRAS_LABEL[eventoHistorico.statusAnterior] || eventoHistorico.statusAnterior || 'Sem status'} → ${STATUS_COMPRAS_LABEL[eventoHistorico.statusNovo] || eventoHistorico.statusNovo}`,
+      tipo: 'compra',
+    } : null;
+
+    atualizarObra(obraId, {
+      compras: { ...(obra.compras || {}), [categoria]: compraAtualizada },
+      arquivos: novoArquivo ? [...(obra.arquivos || []), novoArquivo] : (obra.arquivos || []),
+      historico: eventoGeral ? [...(obra.historico || []), eventoGeral] : (obra.historico || []),
+    });
+
+    const comprasAtualizadas = { ...(obra.compras || {}), [categoria]: compraAtualizada };
+    const obraAtualizada = { ...obra, compras: comprasAtualizadas };
+
+    if (obra.etapa === 'compras' && comprasOk(obraAtualizada) && !obra.ehCardOC) {
+      const agora2 = new Date();
+      const eventoAvanco = {
+        data: agora2.toLocaleDateString('pt-BR'),
+        hora: agora2.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+        usuario: 'Sistema',
+        acao: 'Compras -> Montagem',
+        desc: 'Todas as compras finalizadas. Obra avançada automaticamente para Montagem.',
+        tipo: 'etapa',
+      };
+      const responsavelMontagem = RESPONSAVEL_ETAPA.montagem ?? 'André';
+      atualizarObra(obraId, {
+        etapa: 'montagem',
+        responsavel: responsavelMontagem,
+        prazo: obra.cronograma?.montagem || prazoPorEtapa('montagem', obra, agora2),
+        historico: [...(obra.historico || []), ...(eventoGeral ? [eventoGeral] : []), eventoAvanco],
+      });
+      gerarNotificacao({
+        para: responsavelMontagem,
+        texto: `✅ ${obra.pp} — ${obra.cliente}: todas as compras finalizadas. Obra liberada para Montagem.`,
+        tipo: 'sucesso',
+        obraId,
+        natureza: 'evento',
+        origem: 'Sistema',
+      });
+      gerarNotificacao({
+        para: usuario?.nome || 'Álvaro',
+        texto: `${obra.pp} — ${obra.cliente}: compras concluídas. Obra avançou automaticamente para Montagem.`,
+        tipo: 'info',
+        obraId,
+        natureza: 'evento',
+        origem: 'Sistema',
+      });
+      mostrarToast(`${obra.pp} avançou automaticamente para Montagem!`, 'success');
+    } else {
+      mostrarToast('Compra atualizada.', 'success');
+    }
+    // FIREBASE: atualizar campo compras.<categoria>.
   }
 
   function prorrogarPrazo(obraId, novaData, motivo, usuarioAcao = usuario) {
@@ -805,7 +967,9 @@ export function ObrasProvider({ children }) {
     registrarAvisoDivisao,
     dividirObra,
     gerarNotificacao,
-  }), [obras, usuario]);
+    modoImplantacao,
+    desativarModoImplantacao,
+  }), [obras, usuario, modoImplantacao]);
   return <ObrasContext.Provider value={value}>{children}</ObrasContext.Provider>;
 }
 

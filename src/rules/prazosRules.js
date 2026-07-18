@@ -52,8 +52,17 @@ export const PRAZOS_OC = {
 };
 
 export function addDias(data, dias) {
-  const base = data ? new Date(data) : new Date();
-  base.setDate(base.getDate() + dias);
+  const base = data instanceof Date
+    ? new Date(data)
+    : data
+      ? new Date(`${data}T00:00:00`)
+      : new Date();
+  let adicionados = 0;
+  while (adicionados < dias) {
+    base.setDate(base.getDate() + 1);
+    const diaSemana = base.getDay();
+    if (diaSemana !== 0 && diaSemana !== 6) adicionados++;
+  }
   return base.toISOString().split('T')[0];
 }
 
@@ -85,11 +94,11 @@ export function calcPrazo(prazo) {
   const dias = Math.ceil((alvo - hoje) / 86400000);
   if (dias < 0) return { label: `${Math.abs(dias)}d atraso`, classe: 'badge-vencido', dias };
   if (dias <= 3) return { label: `${dias}d restantes`, classe: 'badge-alerta', dias };
+  if (dias <= 7) return { label: `${dias}d restantes`, classe: 'badge-alerta', dias };
   return { label: `${dias}d restantes`, classe: 'badge-ok', dias };
 }
 
 export function usePrazos() {
   return { calcPrazo };
 }
-
 

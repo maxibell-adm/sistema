@@ -13,7 +13,7 @@ export default function CentralObras() {
   const { usuario } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const { obrasVisiveis } = useObras();
+  const { obrasVisiveis, modoImplantacao } = useObras();
   const [grupo, setGrupo] = useState('todos');
   const [responsavel, setResponsavel] = useState('todos');
   const [filtroAtivo, setFiltroAtivo] = useState('todos');
@@ -21,6 +21,9 @@ export default function CentralObras() {
   const [mostrarFinalizados, setMostrarFinalizados] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const fullscreenRef = useRef(null);
+  const kanbanScrollRef = useRef(null);
+  const fixedBarRef = useRef(null);
+  const [kanbanLargura, setKanbanLargura] = useState(0);
 
   const entrarFullscreen = useCallback(() => {
     setFullscreen(true);
@@ -82,6 +85,36 @@ export default function CentralObras() {
 
   const totalFinalizados = obrasNaoArquivadas.filter((o) => o.etapa === 'finalizado').length;
   const obrasComPendenciaMatheus = obrasVisiveis.filter((o) => o.pendencia?.aberta && o.responsavel === usuario.nome);
+
+  useEffect(() => {
+    const kanban = kanbanScrollRef.current;
+    const barra = fixedBarRef.current;
+    if (!kanban || !barra) return undefined;
+
+    function atualizarLargura() {
+      setKanbanLargura(kanban.scrollWidth);
+    }
+
+    function onBarraScroll() {
+      if (kanban.scrollLeft !== barra.scrollLeft) kanban.scrollLeft = barra.scrollLeft;
+    }
+
+    function onKanbanScroll() {
+      if (barra.scrollLeft !== kanban.scrollLeft) barra.scrollLeft = kanban.scrollLeft;
+    }
+
+    atualizarLargura();
+    const ro = new ResizeObserver(atualizarLargura);
+    ro.observe(kanban);
+    barra.addEventListener('scroll', onBarraScroll, { passive: true });
+    kanban.addEventListener('scroll', onKanbanScroll, { passive: true });
+
+    return () => {
+      barra.removeEventListener('scroll', onBarraScroll);
+      kanban.removeEventListener('scroll', onKanbanScroll);
+      ro.disconnect();
+    };
+  }, [fullscreen, etapasRender.length, filtradas.length]);
 
   function renderFiltros() {
     if (usuario.role === 'medicao') {
@@ -196,9 +229,6 @@ export default function CentralObras() {
     <>
       {!fullscreen && (
         <>
-          {usuario.role !== 'medicao' && (
-            <div className="page-title" style={{ marginBottom: 8 }}>Central de Obras</div>
-          )}
           <div className="kanban-toolbar sticky">
             {renderFiltros()}
             {renderMetricas()}
@@ -220,10 +250,35 @@ export default function CentralObras() {
             </section>
           )}
 
-          <div className="kanban-scroll">
+          {usuario.role === 'admin' && modoImplantacao && (
+            <div style={{
+              background: '#FFF3CD',
+              border: '1px solid #FFC107',
+              borderRadius: 8,
+              padding: '10px 16px',
+              marginBottom: 12,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: 12,
+            }}>
+              <span>🛠</span>
+              <span style={{ color: '#856404', fontWeight: 600 }}>
+                Modo de implantação ativo — clique em cada obra para revisar e corrigir os dados antes de o sistema valer.
+              </span>
+            </div>
+          )}
+
+          <div className="kanban-scroll" ref={kanbanScrollRef} style={{ overflowX: 'hidden' }}>
             {renderKanban()}
           </div>
         </>
+      )}
+
+      {!fullscreen && (
+        <div className="kanban-barra-fixa" ref={fixedBarRef}>
+          <div style={{ width: kanbanLargura, height: 1 }} />
+        </div>
       )}
 
       {fullscreen && createPortal(

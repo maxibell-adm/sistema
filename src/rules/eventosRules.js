@@ -109,20 +109,36 @@ export function gerarPendencias(obra) {
   }
 
   if (obra.etapa === 'compras') {
-    if (compras.vidro?.status === 'aguardando_entrega' && estaAtrasado(compras.vidro, 7)) {
-      pendencias.push({ emoji: '!', texto: 'Vidro atrasado', tipo: 'bloqueio', responsavel: operacional });
+    const dataLib = compras.dataLiberacao;
+    const diasLib = dataLib
+      ? Math.floor((new Date() - new Date(`${dataLib}T00:00:00`)) / 86400000)
+      : 0;
+
+    if (compras.vidros?.status !== 'finalizado' && compras.vidros?.status !== 'vidro_dispensado') {
+      if (diasLib > 7 && !compras.vidros?.dataPedido) {
+        pendencias.push({ emoji: '!', texto: 'Vidro não pedido - prazo excedido', tipo: 'bloqueio', responsavel: operacional });
+      }
+      if (compras.vidros?.status === 'aguardando_entrega' && estaAtrasado(compras.vidros, 7)) {
+        pendencias.push({ emoji: '!', texto: 'Vidro: entrega atrasada', tipo: 'bloqueio', responsavel: operacional });
+      }
     }
-    if (compras.acessorios?.status === 'aguardando_entrega' && estaAtrasado(compras.acessorios, 10)) {
-      pendencias.push({ emoji: '!', texto: 'Acessórios atrasados', tipo: 'bloqueio', responsavel: operacional });
+
+    if (compras.perfis?.status !== 'finalizado') {
+      if (diasLib > 5 && compras.perfis?.status === 'pendente') {
+        pendencias.push({ emoji: '!', texto: 'Separação de perfis não iniciada', tipo: 'bloqueio', responsavel: operacional });
+      }
+      if (compras.perfis?.status === 'aguardando_entrega' && estaAtrasado(compras.perfis, 10)) {
+        pendencias.push({ emoji: '!', texto: 'Perfis: entrega atrasada', tipo: 'bloqueio', responsavel: operacional });
+      }
     }
-    if (compras.perfil?.status === 'aguardando_entrega' && estaAtrasado(compras.perfil, 10)) {
-      pendencias.push({ emoji: '!', texto: 'Perfil de alumínio atrasado', tipo: 'bloqueio', responsavel: operacional });
-    }
-    if (compras.acessorios_separacao?.status !== 'realizada') {
-      pendencias.push({ emoji: '!', texto: 'Separação de acessórios pendente', tipo: 'aviso', responsavel: operacional });
-    }
-    if (compras.perfil_separacao?.status !== 'realizada') {
-      pendencias.push({ emoji: '!', texto: 'Separação do estoque pendente', tipo: 'aviso', responsavel: operacional });
+
+    if (compras.acessorios?.status !== 'finalizado') {
+      if (diasLib > 5 && compras.acessorios?.status === 'pendente') {
+        pendencias.push({ emoji: '!', texto: 'Separação de acessórios não iniciada', tipo: 'bloqueio', responsavel: operacional });
+      }
+      if (compras.acessorios?.status === 'aguardando_entrega' && estaAtrasado(compras.acessorios, 10)) {
+        pendencias.push({ emoji: '!', texto: 'Acessórios: entrega atrasada', tipo: 'bloqueio', responsavel: operacional });
+      }
     }
   }
 
@@ -435,7 +451,6 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
   const hoje = new Date().toISOString().split('T')[0];
   const chaveGlobal = `maxibell.verificacao.comunicacoes.${hoje}`;
   if (localStorage.getItem(chaveGlobal) === 'true') return;
-  localStorage.setItem(chaveGlobal, 'true');
 
   const alvaro = usuarioPorRole('admin')?.nome || 'Álvaro';
   const andre = usuarioPorRole('operacional')?.nome || 'André';
@@ -515,39 +530,119 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
     }
 
     if (obra.etapa === 'compras') {
-      const vidro = obra.compras?.vidro;
-      const diasVidro = diasDesdeOperacional(vidro?.dataPedido);
-      // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
-      if (vidro?.dataPedido && diasVidro > 7 && vidro.status !== 'ok' && podeNotificar('vidro_atraso', obraId, diasVidro, 3, true)) {
-        const texto = `${obra.pp}: vidro pedido há ${diasVidro} dias sem confirmação de entrega`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
+      const dataLib = obra.compras?.dataLiberacao;
+      const diasDesdeLib = dataLib ? diasDesdeOperacional(dataLib) : diasNaEtapa;
+
+      const vidro = obra.compras?.vidros;
+      if (vidro && vidro.status !== 'finalizado' && vidro.status !== 'vidro_dispensado') {
+        if (diasDesdeLib > 7 && !vidro.dataPedido && podeNotificar('vidro_sem_pedido', obraId, diasDesdeLib, 2, true)) {
+          const texto = `${obra.pp}: vidro não foi pedido. Liberado há ${diasDesdeLib} dias corridos.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
+
+        const diasVidro = diasDesdeOperacional(vidro.dataPedido);
+        if (vidro.dataPedido && diasVidro > 7 && vidro.status === 'compra_pendente' && podeNotificar('vidro_atraso', obraId, diasVidro, 3, true)) {
+          const texto = `${obra.pp}: vidro pedido há ${diasVidro} dias sem confirmação de envio pelo fornecedor.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
+
+        const diasAgVidro = diasDesdeOperacional(vidro.dataPedido);
+        if (vidro.status === 'aguardando_entrega' && diasAgVidro > 7 && podeNotificar('vidro_entrega_atraso', obraId, diasAgVidro, 3, true)) {
+          const texto = `${obra.pp}: vidro aguardando entrega há ${diasAgVidro} dias.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
       }
 
-      const acessorios = obra.compras?.acessorios;
-      const diasAcessorios = diasDesdeOperacional(acessorios?.dataPedido);
-      // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
-      if (acessorios?.dataPedido && diasAcessorios > 10 && acessorios.status !== 'ok' && podeNotificar('acess_atraso', obraId, diasAcessorios, 3, true)) {
-        const texto = `${obra.pp}: acessórios pedidos há ${diasAcessorios} dias sem confirmação`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
+      const perfil = obra.compras?.perfis;
+      if (perfil && perfil.status !== 'finalizado') {
+        if (diasDesdeLib > 5 && perfil.status === 'pendente' && podeNotificar('perfil_sep_atraso', obraId, diasDesdeLib, 2, true)) {
+          const texto = `${obra.pp}: separação de perfis não iniciada. Liberado há ${diasDesdeLib} dias corridos.`;
+          notificar({ para: andre, texto, tipo: 'urgente', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'urgente', obraId, natureza: 'estado' });
+        }
+        if (diasDesdeLib > 10 && !perfil.dataPedido && perfil.status !== 'pendente' && podeNotificar('perfil_sem_pedido', obraId, diasDesdeLib, 2, true)) {
+          const texto = `${obra.pp}: perfis sem pedido registrado. Liberado há ${diasDesdeLib} dias corridos.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
+
+        const diasPerfil = diasDesdeOperacional(perfil.dataPedido);
+        if (perfil.status === 'aguardando_entrega' && diasPerfil > 10 && podeNotificar('perfil_entrega_atraso', obraId, diasPerfil, 3, true)) {
+          const texto = `${obra.pp}: perfis aguardando entrega há ${diasPerfil} dias.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
       }
 
-      const perfil = obra.compras?.perfil;
-      const diasPerfil = diasDesdeOperacional(perfil?.dataPedido);
-      // [FIREBASE] Migra para Cloud Function agendada as 18h de tercas-feiras
-      if (perfil?.dataPedido && diasPerfil > 10 && perfil.status !== 'ok' && podeNotificar('perfil_atraso', obraId, diasPerfil, 3, true)) {
-        const texto = `${obra.pp}: perfil pedido há ${diasPerfil} dias sem confirmação`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
+      const acess = obra.compras?.acessorios;
+      if (acess && acess.status !== 'finalizado') {
+        if (diasDesdeLib > 5 && acess.status === 'pendente' && podeNotificar('acess_sep_atraso', obraId, diasDesdeLib, 2, true)) {
+          const texto = `${obra.pp}: separação de acessórios não iniciada. Liberado há ${diasDesdeLib} dias corridos.`;
+          notificar({ para: andre, texto, tipo: 'urgente', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'urgente', obraId, natureza: 'estado' });
+        }
+        if (diasDesdeLib > 10 && !acess.dataPedido && acess.status !== 'pendente' && podeNotificar('acess_sem_pedido', obraId, diasDesdeLib, 2, true)) {
+          const texto = `${obra.pp}: acessórios sem pedido registrado. Liberado há ${diasDesdeLib} dias corridos.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
+
+        const diasAcess = diasDesdeOperacional(acess.dataPedido);
+        if (acess.status === 'aguardando_entrega' && diasAcess > 10 && podeNotificar('acess_entrega_atraso', obraId, diasAcess, 3, true)) {
+          const texto = `${obra.pp}: acessórios aguardando entrega há ${diasAcess} dias.`;
+          notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+          notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        }
       }
 
       const diasAgenda = diasAteOperacional(obra.dataAgendada);
-      // [FIREBASE] Migra para Cloud Function agendada as 18h de quartas-feiras
       if (obra.dataAgendada && diasAgenda !== null && diasAgenda <= 7 && podeNotificar('conflito_agenda', obraId, Math.max(0, 7 - diasAgenda), 3, true)) {
         const texto = `CONFLITO: ${obra.pp} tem instalação em ${obra.dataAgendada} mas ainda está em Compras`;
-        notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
-        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado'});
+        notificar({ para: andre, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+        notificar({ para: alvaro, texto, tipo: 'bloqueio', obraId, natureza: 'estado' });
+      }
+    }
+
+    if (obra.etapa === 'medicao_final') {
+      const atividadeMedicao = (atividades || []).find(
+        (a) => a.obraId === obraId &&
+          (a.tipo === 'Medição Final' || a.tipo === 'medicao_final') &&
+          a.data
+      );
+
+      if (atividadeMedicao) {
+        const diasDesdeAgendado = diasDesdeOperacional(atividadeMedicao.data);
+
+        if (diasDesdeAgendado === 1 && podeNotificar('medicao_final_confirmacao', obraId, diasDesdeAgendado, 1)) {
+          notificar({
+            para: matheus,
+            texto: `${obra.pp} — ${obra.cliente}: A Medição Final estava agendada para ontem (${atividadeMedicao.data}). A medição foi realizada? Se sim, conclua no sistema para iniciar o prazo de projeto.`,
+            tipo: 'urgente',
+            obraId,
+            natureza: 'evento',
+            origem: 'Sistema',
+          });
+        }
+
+        if (diasDesdeAgendado >= 3 && podeNotificar('medicao_final_sem_retorno', obraId, diasDesdeAgendado, 3)) {
+          notificar({
+            para: matheus,
+            texto: `${obra.pp}: Medição Final agendada há ${diasDesdeAgendado} dias sem confirmação. Conclua a medição no sistema.`,
+            tipo: 'bloqueio',
+            obraId,
+            natureza: 'estado',
+          });
+          notificar({
+            para: alvaro,
+            texto: `${obra.pp} — ${obra.cliente}: Medição Final agendada há ${diasDesdeAgendado} dias sem retorno do Matheus. Verificar.`,
+            tipo: 'bloqueio',
+            obraId,
+            natureza: 'estado',
+          });
+        }
       }
     }
 
@@ -951,4 +1046,5 @@ export function verificarComunicacoesOperacionais(obras = [], atividades = [], g
       localStorage.setItem(chaveInsight, 'true');
     }
   }
+  localStorage.setItem(chaveGlobal, 'true');
 }

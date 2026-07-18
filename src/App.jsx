@@ -15,6 +15,8 @@ import PainelIA from '@/pages/PainelIA.jsx';
 import BibliotecaIA from '@/pages/BibliotecaIA.jsx';
 import BibliotecaProjetos from '@/pages/BibliotecaProjetos.jsx';
 import CentralAguinaldo from '@/pages/CentralAguinaldo.jsx';
+import CentralCompras from '@/pages/CentralCompras.jsx';
+import GeradorContratos from '@/pages/GeradorContratos.jsx';
 
 function Protected({ children }) {
   const { usuario } = useAuth();
@@ -31,6 +33,12 @@ function NovaObraRoute() {
   const { usuario } = useAuth();
   if (usuario.role === 'supervisor') return <Navigate to="/" replace />;
   return <NovaObra />;
+}
+
+function CentralComprasRoute() {
+  const { usuario } = useAuth();
+  if (['comercial', 'projetos', 'medicao'].includes(usuario.role)) return <Navigate to="/" replace />;
+  return <CentralCompras />;
 }
 
 function AppRoutes() {
@@ -51,6 +59,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="obras" element={<ObrasRoute />} />
         <Route path="obras/:id" element={<ObraDetalhe />} />
+        <Route path="compras" element={<CentralComprasRoute />} />
+        <Route path="gerador-contratos" element={<GeradorContratos />} />
         <Route path="nova-obra" element={<NovaObraRoute />} />
         <Route path="agenda" element={<AgendaSemanal />} />
         <Route path="ag/max" element={<CentralAguinaldo secaoInicial="max" />} />

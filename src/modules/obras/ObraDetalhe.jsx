@@ -59,7 +59,7 @@ export default function ObraDetalhe() {
   const { id } = useParams();
   const { usuario } = useAuth();
   const { obrasVisiveis } = useObras();
-  const { atualizarVhsys, atualizarObra, gerarNotificacao } = useObrasContext();
+  const { atualizarVhsys, atualizarObra, gerarNotificacao, modoImplantacao, desativarModoImplantacao } = useObrasContext();
   const [modal, setModal] = useState(false);
   const [modalMontagem, setModalMontagem] = useState(false);
   const [confirmarVhsys, setConfirmarVhsys] = useState(null);
@@ -169,7 +169,47 @@ export default function ObraDetalhe() {
       <div className="detalhe-grid">
         <div>
           <section className="card obra-header" style={{ borderTopColor: obra.pendencia?.aberta ? 'var(--laranja)' : etapa?.cor }}>
-            <BotaoVoltar para="/obras" />
+            <BotaoVoltar />
+            {usuario.role === 'admin' && modoImplantacao && (
+              <div style={{
+                background: 'linear-gradient(135deg, #1F497D, #2E75B6)',
+                color: '#fff',
+                borderRadius: 10,
+                padding: '12px 16px',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+              }}>
+                <span style={{ fontSize: 20 }}>🛠</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontFamily: 'Montserrat, sans-serif', fontSize: 12, fontWeight: 800, marginBottom: 2 }}>
+                    MODO DE IMPLANTAÇÃO ATIVO
+                  </div>
+                  <div style={{ fontSize: 11, opacity: .85 }}>
+                    Revise e corrija os dados desta obra antes de o sistema entrar em operação.
+                    Quando todas as obras estiverem corretas, desative o modo abaixo.
+                  </div>
+                </div>
+                <button
+                  onClick={desativarModoImplantacao}
+                  style={{
+                    background: 'rgba(255,255,255,.15)',
+                    border: '1px solid rgba(255,255,255,.4)',
+                    borderRadius: 6,
+                    color: '#fff',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    padding: '6px 12px',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    fontFamily: 'Montserrat, sans-serif',
+                  }}
+                >
+                  ✓ Sistema pronto — desativar
+                </button>
+              </div>
+            )}
             <div className="obra-header-main">
               <div>
                 <div className="obra-cliente">{obra.pp} - {obra.cliente}</div>

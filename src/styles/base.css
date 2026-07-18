@@ -19,6 +19,13 @@
   --amarelo-claro:#FFF8E1;
   --sidebar-w:230px;
   --header-h:52px;
+  --cc-bg:#0D2233;
+  --cc-primario:#1A3A5C;
+  --cc-medio:#1E5799;
+  --cc-claro:#2980B9;
+  --cc-bg-tela:#EBF5FB;
+  --cc-borda:#C8DCF0;
+  --cc-header-h:64px;
 }
 body{font-family:'Open Sans',sans-serif;background:var(--pg-bg);color:var(--cinza-escuro);font-size:13px;min-height:100vh}
 html,body,#root{max-width:100%;overflow-x:hidden}

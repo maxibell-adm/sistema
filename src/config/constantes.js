@@ -29,6 +29,48 @@ export const STATUS_COMPRA = [
   { id: 'ok', label: 'OK' },
 ];
 
+export const SEQUENCIA_PERFIS_ACESSORIOS = [
+  'pendente',
+  'separacao_concluida',
+  'compra_pendente',
+  'aguardando_entrega',
+  'finalizado',
+];
+
+export const SEQUENCIA_VIDROS = [
+  'compra_pendente',
+  'aguardando_entrega',
+  'finalizado',
+];
+
+export const STATUS_COMPRAS_LABEL = {
+  pendente: 'Pendente',
+  separacao_concluida: 'Separação Concluída',
+  compra_pendente: 'Compra Pendente',
+  aguardando_entrega: 'Aguardando Entrega',
+  recebido_conferido: 'Recebido e Conferido',
+  recebido_divergencia: 'Recebido com Divergência',
+  finalizado: 'Finalizado',
+  vidro_dispensado: 'Vidro Dispensado',
+};
+
+export const TRANSICOES_COM_EVIDENCIA = [
+  'separacao_concluida',
+  'aguardando_entrega',
+  'finalizado',
+];
+
+export const TRANSICOES_COM_FORNECEDOR = [
+  'aguardando_entrega',
+];
+
+export function proximoStatusCompra(statusAtual, categoria) {
+  const seq = categoria === 'vidros' ? SEQUENCIA_VIDROS : SEQUENCIA_PERFIS_ACESSORIOS;
+  const idx = seq.indexOf(statusAtual);
+  if (idx < 0 || idx >= seq.length - 1) return null;
+  return seq[idx + 1];
+}
+
 export const RESPONSAVEIS_EXECUCAO = [
   { id: 'alexandre_cruel', label: 'Alexandre Cruel' },
   { id: 'anderson', label: 'Anderson' },
@@ -62,10 +104,38 @@ export function etapaInicial(tipoServico) {
 
 export function comprasPadrao() {
   return {
-    vidro: { status: 'pendente', pedido: '', fornecedor: 'Total Temper', obs: '', dataPedido: null },
-    acessorios_separacao: { status: 'pendente', pedido: '', fornecedor: '', obs: '', dataRealizacao: null },
-    acessorios: { status: 'pendente', pedido: '', fornecedor: '', obs: '', dataPedido: null },
-    perfil_separacao: { status: 'pendente', pedido: '', fornecedor: '', obs: '', dataRealizacao: null },
-    perfil: { status: 'pendente', pedido: '', fornecedor: '', obs: '', dataPedido: null },
+    dataLiberacao: null,
+    perfis: {
+      status: 'pendente',
+      fornecedor: '',
+      numeroPedido: '',
+      dataSeparacao: null,
+      dataPedido: null,
+      dataRecebimento: null,
+      obs: '',
+      evidencias: [],
+      historico: [],
+    },
+    acessorios: {
+      status: 'pendente',
+      fornecedor: '',
+      numeroPedido: '',
+      dataSeparacao: null,
+      dataPedido: null,
+      dataRecebimento: null,
+      obs: '',
+      evidencias: [],
+      historico: [],
+    },
+    vidros: {
+      status: 'compra_pendente',
+      fornecedor: 'Total Temper',
+      numeroPedido: '',
+      dataPedido: null,
+      dataRecebimento: null,
+      obs: '',
+      evidencias: [],
+      historico: [],
+    },
   };
 }

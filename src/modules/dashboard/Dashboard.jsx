@@ -187,16 +187,16 @@ function LembretesAndre({ lembretes, novoLembrete, setNovoLembrete, mostrarForm,
 function CompraBadgesAndre({ obra }) {
   const compras = obra.compras || {};
   const itens = [
-    { label: 'Perfil', compra: compras.perfil },
-    { label: 'Vidro', compra: compras.vidro },
+    { label: 'Perfil', compra: compras.perfis },
+    { label: 'Vidro', compra: compras.vidros },
     { label: 'Acessórios', compra: compras.acessorios },
   ];
 
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
       {itens.map((item) => {
-        const ok = item.compra?.status === 'ok';
-        const pendente = !item.compra || item.compra.status !== 'ok';
+        const ok = ['finalizado', 'vidro_dispensado'].includes(item.compra?.status);
+        const pendente = !item.compra || !['finalizado', 'vidro_dispensado'].includes(item.compra?.status);
         return (
           <span key={item.label} className={`badge ${ok ? 'badge-ok' : pendente ? 'badge-alerta' : 'badge-info'}`} style={{ fontSize: 9 }}>
             {item.label}
@@ -235,7 +235,7 @@ function SecaoOrdemAndre({ titulo, obras, vazio, mostrarCompras = false, destaqu
   return (
     <section className="andre-secao-ordem">
       <div className="andre-secao-titulo-ordem">{titulo}</div>
-      {destaquePerfil && obras.some((obra) => obra.compras?.perfil?.status !== 'ok') && (
+      {destaquePerfil && obras.some((obra) => obra.compras?.perfis?.status !== 'finalizado') && (
         <div className="badge badge-alerta mb-8">🔺 Separar perfil primeiro</div>
       )}
       <div className="andre-obras-lista">
@@ -588,23 +588,23 @@ function tipoAgendaOperacional(tipo) {
 }
 
 function compraAtrasada(compra, dias) {
-  return Boolean(compra?.dataPedido && compra.status !== 'ok' && diasDesdePainel(compra.dataPedido) > dias);
+  return Boolean(compra?.dataPedido && compra.status !== 'finalizado' && diasDesdePainel(compra.dataPedido) > dias);
 }
 
 function compraComPedidoAberto(compra) {
-  return Boolean(compra?.dataPedido && compra.status !== 'ok');
+  return Boolean(compra?.dataPedido && compra.status !== 'finalizado');
 }
 
 function temCompraAtrasada(obra) {
-  return compraAtrasada(obra.compras?.vidro, 7)
+  return compraAtrasada(obra.compras?.vidros, 7)
     || compraAtrasada(obra.compras?.acessorios, 10)
-    || compraAtrasada(obra.compras?.perfil, 10);
+    || compraAtrasada(obra.compras?.perfis, 10);
 }
 
 function temMaterialNaoEntregue(obra) {
-  return compraComPedidoAberto(obra.compras?.vidro)
+  return compraComPedidoAberto(obra.compras?.vidros)
     || compraComPedidoAberto(obra.compras?.acessorios)
-    || compraComPedidoAberto(obra.compras?.perfil);
+    || compraComPedidoAberto(obra.compras?.perfis);
 }
 
 function normalizarNomeChave(nome) {
@@ -1426,19 +1426,19 @@ export default function Dashboard() {
     const diaSemana = new Date().getDay();
     const obrasCompras = obrasVisiveis.filter((o) => o.etapa === 'compras');
     const ordenarPorSaude = (lista) => [...lista].sort((a, b) => calcularSaudeObra(a).valor - calcularSaudeObra(b).valor);
-    const statusPendente = (compra) => !compra || compra.status !== 'ok';
+    const statusPendente = (compra) => !compra || !['finalizado', 'vidro_dispensado'].includes(compra.status);
     const diasDesde = (data) => {
       if (!data) return 0;
       const base = new Date(data).getTime();
       return Number.isNaN(base) ? 0 : Math.floor((Date.now() - base) / 86400000);
     };
-    const temMaterialAguardando = (obra) => ['perfil', 'vidro', 'acessorios'].some((tipo) => {
+    const temMaterialAguardando = (obra) => ['perfis', 'vidros', 'acessorios'].some((tipo) => {
       const compra = obra.compras?.[tipo];
-      return compra?.dataPedido && compra.status !== 'ok' && diasDesde(compra.dataPedido) > 7;
+      return compra?.dataPedido && compra.status !== 'finalizado' && diasDesde(compra.dataPedido) > 7;
     });
     const ordenarCompras = (lista) => ordenarPorSaude(lista).sort((a, b) => {
-      const aPerfil = statusPendente(a.compras?.perfil) ? 0 : 1;
-      const bPerfil = statusPendente(b.compras?.perfil) ? 0 : 1;
+      const aPerfil = statusPendente(a.compras?.perfis) ? 0 : 1;
+      const bPerfil = statusPendente(b.compras?.perfis) ? 0 : 1;
       return aPerfil - bPerfil;
     });
     const obrasInstalacao = ordenarPorSaude(obrasVisiveis.filter((o) => o.etapa === 'instalacao' && !o.dataAgendada));
@@ -2008,7 +2008,7 @@ export default function Dashboard() {
       ? Math.round((obrasEmMontagem.filter((o) => calcPrazo(o.prazo).classe !== 'badge-vencido').length / obrasEmMontagem.length) * 100)
       : 100;
     const saudeCompras = obrasEmCompras.length > 0
-      ? Math.round((obrasEmCompras.filter((o) => !o.compras?.vidro?.dataPedido || o.compras?.vidro?.status === 'ok').length / obrasEmCompras.length) * 100)
+      ? Math.round((obrasEmCompras.filter((o) => !o.compras?.vidros?.dataPedido || ['finalizado', 'vidro_dispensado'].includes(o.compras?.vidros?.status)).length / obrasEmCompras.length) * 100)
       : 100;
     const saudacaoAlvaro = (() => {
       const h = new Date().getHours();

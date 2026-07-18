@@ -1,5 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { ATIVIDADES_EXEMPLO } from '@/modules/agenda/atividadesData.js';
+import { OBRAS_EXEMPLO } from '@/modules/obras/obrasData.js';
+import { verificarExpiracoes } from '@/modules/contratos/contratosService.js';
 import { tocarSomNotificacao } from '@/rules/notificacoesRules.js';
 import { verificarNotificacoesAmanha } from '@/rules/eventosRules.js';
 import { useAuth } from '@/modules/auth/AuthContext.jsx';
@@ -31,12 +33,25 @@ function carregarNotificacoes(nome) {
   }
 }
 
+function carregarObrasParaExpiracao() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('maxibell.firestore.obras') || '[]');
+    return Array.isArray(parsed) && parsed.length ? parsed : OBRAS_EXEMPLO;
+  } catch {
+    localStorage.removeItem('maxibell.firestore.obras');
+    return OBRAS_EXEMPLO;
+  }
+}
+
 export function AppProvider({ children }) {
   const { usuario } = useAuth();
   const [atividades, setAtividades] = useState(ATIVIDADES_EXEMPLO);
   const [notificacoes, setNotificacoes] = useState(() => carregarNotificacoes(usuario?.nome));
   const [toast, setToast] = useState(null);
   const [toasts, setToasts] = useState([]);
+  const [sidebarColapsada, setSidebarColapsada] = useState(() => {
+    return localStorage.getItem('maxibell.sidebar.colapsada') === 'true';
+  });
 
   useEffect(() => {
     if (!usuario?.nome) {
@@ -45,6 +60,16 @@ export function AppProvider({ children }) {
     }
     setNotificacoes(carregarNotificacoes(usuario.nome));
   }, [usuario?.nome]);
+
+  useEffect(() => {
+    const largura = sidebarColapsada ? '52px' : '230px';
+    document.documentElement.style.setProperty('--sidebar-w', largura);
+    localStorage.setItem('maxibell.sidebar.colapsada', String(sidebarColapsada));
+  }, [sidebarColapsada]);
+
+  function toggleSidebar() {
+    setSidebarColapsada((valor) => !valor);
+  }
 
   function mostrarToast(texto, tipo = 'info') {
     setToast({ texto, tipo, id: Date.now() });
@@ -96,6 +121,8 @@ export function AppProvider({ children }) {
     if (atividades.length > 0) {
       verificarNotificacoesAmanha(atividades, gerarNotificacao);
     }
+    const obras = carregarObrasParaExpiracao();
+    verificarExpiracoes(obras);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -154,8 +181,10 @@ export function AppProvider({ children }) {
       mostrarToast,
       toasts,
       removerToast,
+      sidebarColapsada,
+      toggleSidebar,
     }),
-    [atividades, notificacoes, toast, toasts]
+    [atividades, notificacoes, toast, toasts, sidebarColapsada]
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

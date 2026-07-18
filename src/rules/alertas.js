@@ -34,7 +34,7 @@ export function atrasosDePrazo(obras) {
 export function alertasCriticos(obras) {
   const prazo = atrasosDePrazo(obras).filter((a) => a.dias > 5);
   const compras = obras
-    .filter((obra) => obra.etapa === 'compras' && ['vidro', 'acessorios', 'perfil'].some((id) => obra.compras?.[id]?.status !== 'ok'))
+    .filter((obra) => obra.etapa === 'compras' && ['vidros', 'acessorios', 'perfis'].some((id) => obra.compras?.[id]?.status !== 'finalizado'))
     .map((obra) => ({
       id: `${obra.id}-compras`,
       tipo: 'compras',
