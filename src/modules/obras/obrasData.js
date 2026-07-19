@@ -3371,7 +3371,7 @@ export const OBRAS_REAIS = [
     "etapa": "fabricacao_contramarco",
     "responsavel": "André",
     "fechamento": "2026-07-01",
-    "prazo": "2026-02-09",
+    "prazo": null,
     "prazoCliente": null,
     "valor": "",
     "pagamento": "",

@@ -611,6 +611,17 @@ function normalizarNomeChave(nome) {
   return (nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
+function diasDesde(valor) {
+  if (!valor) return 0;
+  const data = new Date(valor);
+  if (Number.isNaN(data.getTime())) return 0;
+  return Math.max(0, Math.floor((Date.now() - data.getTime()) / 86400000));
+}
+
+function textoRadarObra(obra, problema, acao) {
+  return `${obra.pp} — ${obra.cliente}: ${problema}. ${acao}`;
+}
+
 function BriefingOperacional({ usuario, blocos, onConcluir }) {
   const blocosValidos = blocos.filter((b) => b && (b.itens?.length > 0 || b.conteudo));
   const totalSlides = blocosValidos.length + 1;
@@ -2077,7 +2088,7 @@ export default function Dashboard() {
       {
         ativo: obrasComprasAtrasadasAlvaro.length > 0,
         texto: `${obrasComprasAtrasadasAlvaro.length} compra${obrasComprasAtrasadasAlvaro.length === 1 ? '' : 's'} atrasada${obrasComprasAtrasadasAlvaro.length === 1 ? '' : 's'}`,
-        detalhe: 'Itens de compra fora do prazo',
+        detalhe: obrasComprasAtrasadasAlvaro[0] ? detalheCompraAtrasada(obrasComprasAtrasadasAlvaro[0]) : 'Itens de compra fora do prazo',
         obras: obrasComprasAtrasadasAlvaro,
         titulo: 'Compras atrasadas',
         subtitulo: `${obrasComprasAtrasadasAlvaro.length} obra(s) com compra atrasada`,
@@ -2104,6 +2115,19 @@ export default function Dashboard() {
       if (total <= 2) return '⚠️';
       return '🔴';
     };
+    function detalheCompraAtrasada(obra) {
+      const categorias = [
+        ['vidros', 'vidros', 7],
+        ['perfis', 'perfis', 10],
+        ['acessorios', 'acessórios', 10],
+      ];
+      const item = categorias.find(([id,, diasLimite]) => compraAtrasada(obra.compras?.[id], diasLimite));
+      if (!item) return `${obra.pp} — ${obra.cliente}: compra pendente. Verificar fornecedor e atualizar status.`;
+      const [id, label] = item;
+      const compra = obra.compras?.[id] || {};
+      const dias = diasDesde(compra.dataPedido);
+      return `${obra.pp} — ${obra.cliente}: compra de ${label} pedida há ${dias} dias sem entrega confirmada. Cobrar ${compra.fornecedor || 'o fornecedor'}.`;
+    }
     const corSaude = (valor) => {
       if (valor >= 80) return 'var(--verde)';
       if (valor >= 60) return 'var(--laranja)';
@@ -2248,7 +2272,7 @@ export default function Dashboard() {
                 {itensAtencao.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => item.obraId && (concluirRadar(), navigate(`/obras/${item.obraId}`))}
+                    onClick={() => item.obraId && (concluirRadar(), window.open(`#/obras/${item.obraId}`, '_blank'))}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 12,
                       width: '100%', textAlign: 'left',
@@ -2286,21 +2310,21 @@ export default function Dashboard() {
             const ontem = new Date(Date.now() - 86400000).toISOString().split('T')[0];
             const passouBatidoPorColaborador = [
               {
-                nome: 'André',
+                nome: 'Andr?',
                 cor: '#27AE60',
                 itens: [
                   ...obrasVisiveis.filter((o) => ['instalacao','entrega','entrega_cm'].includes(o.etapa) && !o.dataAgendada && (() => { const d = Math.floor((Date.now() - new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000); return d >= 2; })()).map((o) => ({
-                    texto: `Não agendou: ${o.pp} — ${o.cliente} (${labelEtapa(o.etapa)})`,
+                    texto: textoRadarObra(o, `${labelEtapa(o.etapa)} sem data agendada há ${diasDesde(o.atualizadoEm || o.criadoEm)} dias`, 'Definir data com a equipe e registrar na agenda.'),
                     obraId: o.id,
                     obra: o,
                   })),
                   ...obrasSemVhsys.filter((o) => Math.floor((Date.now()-new Date(o.criadoEm).getTime())/86400000) >= 2).map((o) => ({
-                    texto: `VHSYS não lançado: ${o.pp} — ${o.cliente}`,
+                    texto: textoRadarObra(o, `VHSYS não lançado há ${diasDesde(o.criadoEm)} dias`, 'Cadastrar o pedido no ERP e preencher o número na obra.'),
                     obraId: o.id,
                     obra: o,
                   })),
                   ...obrasVisiveis.filter((o) => o.etapa === 'montagem' && !o.montagemIniciada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({
-                    texto: `Não iniciou montagem: ${o.pp} — ${o.cliente}`,
+                    texto: textoRadarObra(o, `montagem sem início há ${diasDesde(o.atualizadoEm || o.criadoEm)} dias`, 'Confirmar início da produção ou justificar o bloqueio.'),
                     obraId: o.id,
                     obra: o,
                   })),
@@ -2311,12 +2335,12 @@ export default function Dashboard() {
                 cor: '#8E44AD',
                 itens: [
                   ...lerArrayLocalStorage('maxibell.manutencao.aguardando_ana').filter((m) => m.status === 'aguardando' && m.dataSugerida <= ontem).map((m) => ({
-                    texto: `Não confirmou: ${m.pp} — ${m.cliente} (${m.tipo||'agendamento'} em ${m.dataSugerida})`,
+                    texto: `${m.pp} — ${m.cliente}: ${m.tipo || 'agendamento'} em ${m.dataSugerida} ficou sem confirmação. Confirmar com o cliente e atualizar o registro.`,
                     obraId: m.obraId || null,
                     obra: null,
                   })),
                   ...lerArrayLocalStorage('maxibell.lembretes.app').filter((l) => l.titulo?.includes('Follow-up') && !l.concluido && l.responsavel === 'Ana' && (() => { const dias = Math.floor((Date.now()-new Date((l.criadoEm||'').split('/').reverse().join('-')).getTime())/86400000); return dias >= 1; })()).slice(0,2).map((l) => ({
-                    texto: `Follow-up pendente: ${l.titulo}`,
+                    texto: `${l.pp ? `${l.pp} — ` : ''}${l.cliente || l.titulo}: follow-up comercial pendente. Registrar contato e retorno no Kommo.`,
                     obraId: l.obraId || null,
                     obra: null,
                   })),
@@ -2327,7 +2351,7 @@ export default function Dashboard() {
                 cor: '#E67E22',
                 itens: [
                   ...obrasVisiveis.filter((o) => o.etapa === 'manutencao' && !o.manutencaoTriada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({
-                    texto: `Não triou manutenção: ${o.pp} — ${o.cliente}`,
+                    texto: textoRadarObra(o, `manutenção sem triagem há ${diasDesde(o.atualizadoEm || o.criadoEm)} dias`, 'Triar a solicitação e definir o próximo responsável.'),
                     obraId: o.id,
                     obra: o,
                   })),
@@ -2338,7 +2362,7 @@ export default function Dashboard() {
                 cor: '#2980B9',
                 itens: [
                   ...obrasVisiveis.filter((o) => ['projeto_contramarco','projeto_final'].includes(o.etapa) && calcPrazo(o.prazo).classe === 'badge-vencido').map((o) => ({
-                    texto: `Projeto vencido: ${o.pp} — ${o.cliente} (${calcPrazo(o.prazo).label})`,
+                    texto: textoRadarObra(o, `projeto em ${labelEtapa(o.etapa)} está ${calcPrazo(o.prazo).label}`, 'Priorizar liberação ou abrir pendência com responsável definido.'),
                     obraId: o.id,
                     obra: o,
                   })),
@@ -2393,7 +2417,7 @@ export default function Dashboard() {
                       {col.itens.map((item, j) => (
                         <button
                           key={j}
-                          onClick={() => item.obraId && (concluirRadar(), navigate(`/obras/${item.obraId}`))}
+                          onClick={() => item.obraId && (concluirRadar(), window.open(`#/obras/${item.obraId}`, '_blank'))}
                           style={{
                             display: 'flex', alignItems: 'center', gap: 10,
                             width: '100%', textAlign: 'left',
@@ -2540,6 +2564,11 @@ export default function Dashboard() {
               setAgendaPainel(null);
             }}
           >Particular</Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => navigate('/gerador-contratos')}
+          >Gerar Contrato</Button>
         </div>
         {telaAlvaro === 1 && agendaPainel === 'amanha' && (
           <>
@@ -2717,30 +2746,30 @@ export default function Dashboard() {
 
               const colaboradoresPB = [
                 {
-                  nome: 'André', cor: '#27AE60',
+                  nome: 'Andr?', cor: '#27AE60',
                   itens: [
-                    ...obrasVisiveis.filter((o) => ['instalacao','entrega','entrega_cm'].includes(o.etapa) && !o.dataAgendada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: `Não agendou: ${o.pp} — ${o.cliente} (${labelEtapa(o.etapa)})`, obraId: o.id })),
-                    ...obrasSemVhsys.filter((o) => Math.floor((Date.now()-new Date(o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: `VHSYS pendente: ${o.pp} — ${o.cliente}`, obraId: o.id })),
-                    ...obrasVisiveis.filter((o) => o.etapa === 'montagem' && !o.montagemIniciada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: `Montagem não iniciada: ${o.pp} — ${o.cliente}`, obraId: o.id })),
+                    ...obrasVisiveis.filter((o) => ['instalacao','entrega','entrega_cm'].includes(o.etapa) && !o.dataAgendada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: textoRadarObra(o, `${labelEtapa(o.etapa)} sem data agendada há ${diasDesde(o.atualizadoEm || o.criadoEm)} dias`, 'Definir data com a equipe e registrar na agenda.'), obraId: o.id })),
+                    ...obrasSemVhsys.filter((o) => Math.floor((Date.now()-new Date(o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: textoRadarObra(o, `VHSYS pendente há ${diasDesde(o.criadoEm)} dias`, 'Cadastrar o pedido no ERP e preencher o número na obra.'), obraId: o.id })),
+                    ...obrasVisiveis.filter((o) => o.etapa === 'montagem' && !o.montagemIniciada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: textoRadarObra(o, `montagem sem início há ${diasDesde(o.atualizadoEm || o.criadoEm)} dias`, 'Confirmar início da produção ou justificar o bloqueio.'), obraId: o.id })),
                   ],
                 },
                 {
                   nome: 'Ana', cor: '#8E44AD',
                   itens: [
-                    ...lerArrayLocalStorage('maxibell.manutencao.aguardando_ana').filter((m) => m.status === 'aguardando' && m.dataSugerida <= ontem).map((m) => ({ texto: `Não confirmou: ${m.pp} — ${m.cliente}`, obraId: m.obraId||null })),
-                    ...lerArrayLocalStorage('maxibell.lembretes.app').filter((l) => l.titulo?.includes('Follow-up') && !l.concluido && l.responsavel === 'Ana').slice(0,2).map((l) => ({ texto: `Follow-up pendente: ${l.titulo}`, obraId: l.obraId||null })),
+                    ...lerArrayLocalStorage('maxibell.manutencao.aguardando_ana').filter((m) => m.status === 'aguardando' && m.dataSugerida <= ontem).map((m) => ({ texto: `${m.pp} — ${m.cliente}: agendamento ficou sem confirmação. Confirmar com o cliente e atualizar o registro.`, obraId: m.obraId||null })),
+                    ...lerArrayLocalStorage('maxibell.lembretes.app').filter((l) => l.titulo?.includes('Follow-up') && !l.concluido && l.responsavel === 'Ana').slice(0,2).map((l) => ({ texto: `${l.pp ? `${l.pp} — ` : ''}${l.cliente || l.titulo}: follow-up comercial pendente. Registrar contato e retorno no Kommo.`, obraId: l.obraId||null })),
                   ],
                 },
                 {
                   nome: 'Matheus', cor: '#E67E22',
                   itens: [
-                    ...obrasVisiveis.filter((o) => o.etapa === 'manutencao' && !o.manutencaoTriada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: `Triagem pendente: ${o.pp} — ${o.cliente}`, obraId: o.id })),
+                    ...obrasVisiveis.filter((o) => o.etapa === 'manutencao' && !o.manutencaoTriada && Math.floor((Date.now()-new Date(o.atualizadoEm||o.criadoEm).getTime())/86400000) >= 2).map((o) => ({ texto: textoRadarObra(o, `manutenção sem triagem há ${diasDesde(o.atualizadoEm || o.criadoEm)} dias`, 'Triar a solicitação e definir o próximo responsável.'), obraId: o.id })),
                   ],
                 },
                 {
                   nome: 'Allana', cor: '#2980B9',
                   itens: [
-                    ...obrasVisiveis.filter((o) => ['projeto_contramarco','projeto_final'].includes(o.etapa) && calcPrazo(o.prazo).classe === 'badge-vencido').map((o) => ({ texto: `Projeto vencido: ${o.pp} — ${o.cliente} (${calcPrazo(o.prazo).label})`, obraId: o.id })),
+                    ...obrasVisiveis.filter((o) => ['projeto_contramarco','projeto_final'].includes(o.etapa) && calcPrazo(o.prazo).classe === 'badge-vencido').map((o) => ({ texto: textoRadarObra(o, `projeto em ${labelEtapa(o.etapa)} está ${calcPrazo(o.prazo).label}`, 'Priorizar liberação ou abrir pendência com responsável definido.'), obraId: o.id })),
                   ],
                 },
               ].filter((c) => c.itens.length > 0);
@@ -2850,9 +2879,6 @@ export default function Dashboard() {
           gap: 16,
         }}>
           <div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,.65)', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: 4 }}>
-              {saudacao}, Allana
-            </div>
             <div style={{ fontSize: 22, fontFamily: 'Montserrat,sans-serif', fontWeight: 800, color: '#fff', lineHeight: 1.2 }}>
               {listaAtivos.length === 0
                 ? 'Nenhum projeto em fila.'
@@ -3166,15 +3192,16 @@ export default function Dashboard() {
         .map((o) => ({ tipo: 'atencao', texto: `${o.pp} - ${o.cliente}: manutenção aguardando triagem`, obraId: o.id })),
     ].slice(0, 5);
     const manutTriagem = obrasVisiveis.filter((o) => o.etapa === 'manutencao' && !o.manutencaoTriada);
-    const medicaoAberta = obrasVisiveis
-      .filter((o) => o.etapa === 'medicao_inicial' && o.responsavel === usuario.nome)
-      .sort((a, b) => {
-        const pa = calcPrazo(a.prazo);
-        const pb = calcPrazo(b.prazo);
-        if (pa.classe === 'badge-vencido' && pb.classe !== 'badge-vencido') return -1;
-        if (pb.classe === 'badge-vencido' && pa.classe !== 'badge-vencido') return 1;
-        return (pa.dias ?? 999) - (pb.dias ?? 999);
-      })[0];
+    const obrasMatheusAtivas = obrasVisiveis.filter(
+      (o) => ['medicao_inicial', 'medicao_final'].includes(o.etapa)
+    );
+    const medicaoInicialList = obrasMatheusAtivas
+      .filter((o) => o.etapa === 'medicao_inicial')
+      .sort((a, b) => (calcPrazo(a.prazo).dias ?? 999) - (calcPrazo(b.prazo).dias ?? 999));
+    const medicaoFinalList = obrasMatheusAtivas
+      .filter((o) => o.etapa === 'medicao_final')
+      .sort((a, b) => (calcPrazo(a.prazo).dias ?? 999) - (calcPrazo(b.prazo).dias ?? 999));
+    const medicaoAberta = medicaoInicialList[0];
     const compromissosExternos = atividadesPerfil
       .filter((a) => a.data === hojeIso && TIPOS_EXTERNOS_MATHEUS.includes(a.tipo))
       .sort((a, b) => (a.hora || '').localeCompare(b.hora || ''));
@@ -3468,29 +3495,54 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {medicaoAberta && (
-              <button
-                onClick={() => navigate(`/obras/${medicaoAberta.id}`)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 12,
-                  background: 'var(--branco)', border: '1px solid var(--cinza-borda)',
-                  borderLeft: '4px solid var(--azul)', borderRadius: 12,
-                  padding: '14px 16px', cursor: 'pointer', textAlign: 'left', width: '100%',
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase', marginBottom: 4 }}>
-                    Medição inicial em aberto
+            {medicaoInicialList.length > 0 && (
+              <div style={{ background: 'var(--branco)', border: '1px solid var(--cinza-borda)', borderLeft: '4px solid var(--azul)', borderRadius: 12, padding: '14px 16px', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
+                    📐 Medição Inicial — {medicaoInicialList.length} obra{medicaoInicialList.length > 1 ? 's' : ''}
                   </div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--azul)' }}>
-                    {medicaoAberta.pp} — {medicaoAberta.cliente}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--cinza-medio)' }}>📍 {medicaoAberta.cidade}</div>
                 </div>
-                <span className={`badge ${calcPrazo(medicaoAberta.prazo).classe}`}>
-                  {calcPrazo(medicaoAberta.prazo).label}
-                </span>
-              </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {medicaoInicialList.map((obra) => (
+                    <button
+                      key={obra.id}
+                      onClick={() => navigate(`/obras/${obra.id}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--cinza-claro)', border: '1px solid var(--cinza-borda)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>{obra.pp} ? {obra.cliente}</div>
+                        <div style={{ fontSize: 10, color: 'var(--cinza-medio)' }}>?? {obra.cidade}</div>
+                      </div>
+                      <span className={`badge ${calcPrazo(obra.prazo).classe}`}>{calcPrazo(obra.prazo).label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {medicaoFinalList.length > 0 && (
+              <div style={{ background: 'var(--branco)', border: '1px solid var(--cinza-borda)', borderLeft: '4px solid var(--laranja)', borderRadius: 12, padding: '14px 16px', marginBottom: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: 'var(--cinza-medio)', textTransform: 'uppercase' }}>
+                    📏 Medição Final — {medicaoFinalList.length} obra{medicaoFinalList.length > 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {medicaoFinalList.map((obra) => (
+                    <button
+                      key={obra.id}
+                      onClick={() => navigate(`/obras/${obra.id}`)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 10, background: 'var(--cinza-claro)', border: '1px solid var(--cinza-borda)', borderRadius: 8, padding: '8px 12px', cursor: 'pointer', textAlign: 'left', width: '100%' }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--azul)' }}>{obra.pp} ? {obra.cliente}</div>
+                        <div style={{ fontSize: 10, color: 'var(--cinza-medio)' }}>?? {obra.cidade}</div>
+                      </div>
+                      <span className={`badge ${calcPrazo(obra.prazo).classe}`}>{calcPrazo(obra.prazo).label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
 
             {alertasMatheus.length > 0 && (

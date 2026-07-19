@@ -196,6 +196,7 @@ export default function Sidebar() {
           <>
             <ExternalNavItem href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#followup" icon="📞" label="Follow-up" collapsed={sidebarColapsada} onNavigate={colapsarSeAberta} />
             <ExternalNavItem href="https://maxibell-adm.github.io/Maxibell/ana/central-ana-v2.html#faq" icon="?" label="FAQ" collapsed={sidebarColapsada} onNavigate={colapsarSeAberta} />
+            <NavItem to="/gerador-contratos" icon="📝" label="Gerador de Contratos" collapsed={sidebarColapsada} onNavigate={colapsarSeAberta} />
             <ExternalNavItem href="https://drive.google.com/drive/folders/1rvvgrds9G25TgHonXke-GeiZ1vIOOKZ1" icon="📁" label="Drive Comercial" collapsed={sidebarColapsada} onNavigate={colapsarSeAberta} />
           </>
         )}

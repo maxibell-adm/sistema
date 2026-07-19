@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { labelEtapa } from '@/config/etapas.js';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 import { calcPrazo } from '@/rules/prazosRules.js';
-import { usuarioPorNome } from '@/rules/alertas.js';
 import ArquivosObra from './ArquivosObra.jsx';
 import FasesObra from './FasesObra.jsx';
 import HistoricoObra from './HistoricoObra.jsx';
@@ -11,7 +10,6 @@ import ModalLiberarProjeto from './ModalLiberarProjeto.jsx';
 import ModalPendenciaProjeto from './ModalPendenciaProjeto.jsx';
 import Badge from '@/modules/ui/Badge.jsx';
 import BotaoVoltar from '@/modules/ui/BotaoVoltar.jsx';
-import Button from '@/modules/ui/Button.jsx';
 
 export default function ObraDetalheAllana({ obra }) {
   const [liberar, setLiberar] = useState(false);
@@ -22,29 +20,20 @@ export default function ObraDetalheAllana({ obra }) {
 
   const prazo = calcPrazo(obra.prazo);
   const tipoProjeto = obra.etapa === 'projeto_contramarco' ? 'Contramarco' : 'Projeto Final';
-  const projetoLiberado = obra.etapa !== 'projeto_contramarco' && obra.etapa !== 'projeto_final';
-  const resp = usuarioPorNome(obra.responsavel);
-  const historicoProjeto = {
-    ...obra,
-    historico: (obra.historico || []).filter((h) =>
-      /medicao|projeto|pendencia/i.test(`${h.acao} ${h.desc}`),
-    ),
-  };
+  const projetoLiberado = !['projeto_contramarco', 'projeto_final'].includes(obra.etapa);
 
   function iniciarLiberacao() {
-    if (
-      obra.etapa === 'projeto_final' ||
-      (obra.pendencia?.tipo === 'aviso_divisao' && obra.pendencia.aberta)
-    ) {
+    if (obra.etapa === 'projeto_final' ||
+        (obra.pendencia?.tipo === 'aviso_divisao' && obra.pendencia.aberta)) {
       setEscopo(true);
-      return;
+    } else {
+      setLiberar(true);
     }
-    setLiberar(true);
   }
 
   function confirmarEscopoIntegral() {
     if (obra.pendencia?.tipo === 'aviso_divisao' && obra.pendencia.aberta) {
-      resolverPendencia(obra.id, 'Allana verificou o escopo e confirmou producao integral nesta etapa.');
+      resolverPendencia(obra.id, 'Allana verificou o escopo e confirmou producao integral.');
     }
     setEscopo(false);
     setLiberar(true);
@@ -54,6 +43,8 @@ export default function ObraDetalheAllana({ obra }) {
     <>
       <div className="detalhe-grid">
         <div>
+
+          {/* HEADER - idêntico ao ObraDetalhe principal */}
           <section
             className="card obra-header"
             style={{ borderTopColor: obra.pendencia?.aberta ? 'var(--laranja)' : 'var(--azul-claro)' }}
@@ -61,20 +52,12 @@ export default function ObraDetalheAllana({ obra }) {
             <BotaoVoltar />
             <div className="obra-header-main">
               <div>
+                <div className="obra-pp">{tipoProjeto} · {labelEtapa(obra.etapa)}</div>
                 <div className="obra-cliente">{obra.pp} — {obra.cliente}</div>
-                <div className="obra-pp">{obra.cidade} · {obra.tipo}</div>
-                <div className="obra-responsavel-destaque" style={{ marginTop: 8 }}>
-                  <span className="fs-12 text-muted">Responsável medição:</span>
-                  <span className="avatar grande" style={{ background: resp.cor }}>{resp.avatar}</span>
-                  <span>
-                    <b>{resp.nome}</b>
-                    <small>{resp.cargo}</small>
-                  </span>
-                </div>
+                <div className="obra-pp" style={{ marginTop: 2 }}>{obra.cidade} · {obra.tipo}</div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'flex-start' }}>
                 {obra.pendencia?.aberta && <Badge classe="badge-alerta">⚠ Pendência</Badge>}
-                <Badge classe="badge-info">{labelEtapa(obra.etapa)}</Badge>
                 <Badge classe={prazo.classe}>{prazo.label}</Badge>
               </div>
             </div>
@@ -86,53 +69,41 @@ export default function ObraDetalheAllana({ obra }) {
             </div>
           </section>
 
+          {/* FASES */}
           <FasesObra obra={obra} />
 
+          {/* O QUE PROJETAR */}
           <section className="card card-pad detail-section">
             <div className="section-hdr">
               <div className="section-titulo">📐 O que projetar</div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--cinza-medio)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.4px', fontFamily: 'Montserrat,sans-serif', fontWeight: 700 }}>
-                  Tipo de projeto
-                </div>
-                <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--azul)' }}>
-                  {tipoProjeto}
-                </div>
+            <div className="info-grid" style={{ marginBottom: 14 }}>
+              <div className="info-item">
+                <span className="info-label">Tipo de projeto</span>
+                <span className="info-valor">{tipoProjeto}</span>
               </div>
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--cinza-medio)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.4px', fontFamily: 'Montserrat,sans-serif', fontWeight: 700 }}>
-                  Prazo
-                </div>
-                <Badge classe={prazo.classe}>{prazo.label}</Badge>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: 'var(--cinza-medio)', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '.4px', fontFamily: 'Montserrat,sans-serif', fontWeight: 700 }}>
-                  Vencimento
-                </div>
-                <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 13, fontWeight: 800, color: 'var(--azul)' }}>
+              <div className="info-item">
+                <span className="info-label">Vencimento</span>
+                <span className="info-valor">
                   {obra.prazo
                     ? new Date(`${obra.prazo}T00:00:00`).toLocaleDateString('pt-BR')
-                    : 'Sem prazo'}
-                </div>
+                    : '—'}
+                </span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">Prazo</span>
+                <Badge classe={prazo.classe}>{prazo.label}</Badge>
               </div>
             </div>
 
             {obra.pendencia?.aberta && (
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  background: 'var(--laranja-claro)',
-                  border: '1px solid var(--laranja)',
-                  borderRadius: 8,
-                  padding: '10px 14px',
-                  marginBottom: 14,
-                }}
-              >
+              <div style={{
+                display: 'flex', alignItems: 'flex-start', gap: 10,
+                background: 'var(--laranja-claro)',
+                border: '1px solid var(--laranja)',
+                borderRadius: 8, padding: '10px 14px', marginBottom: 14,
+              }}>
                 <span style={{ fontSize: 18 }}>⚠</span>
                 <div>
                   <div style={{ fontFamily: 'Montserrat,sans-serif', fontSize: 11, fontWeight: 800, color: 'var(--laranja)' }}>
@@ -145,15 +116,21 @@ export default function ObraDetalheAllana({ obra }) {
               </div>
             )}
 
-            <p className="text-muted mt-8" style={{ fontSize: 12, marginBottom: 16 }}>
+            <p style={{ fontSize: 12, color: 'var(--cinza-medio)', marginBottom: 14 }}>
               Confira os arquivos de medição e anexe o projeto concluído para liberar a próxima etapa.
             </p>
 
             {!projetoLiberado ? (
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <Button variant="success" onClick={iniciarLiberacao}>✓ Liberar Projeto</Button>
-                <Button variant="danger" onClick={() => setPendencia(true)}>! Abrir Pendência</Button>
-                <Button variant="secondary" onClick={() => setModalDivisao(true)}>÷ Divisão de Obra</Button>
+                <button className="btn btn-primary" onClick={iniciarLiberacao}>
+                  ✓ Liberar Projeto
+                </button>
+                <button className="btn btn-danger" onClick={() => setPendencia(true)}>
+                  ! Abrir Pendência
+                </button>
+                <button className="btn btn-secondary" onClick={() => setModalDivisao(true)}>
+                  ÷ Divisão de Obra
+                </button>
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -165,21 +142,30 @@ export default function ObraDetalheAllana({ obra }) {
             )}
           </section>
 
+          {/* ARQUIVOS */}
           <section className="card card-pad detail-section">
             <div className="section-hdr">
               <div className="section-titulo">📁 Arquivos</div>
             </div>
-            <ArquivosObra obra={obra} framed={false} mostrarTitulo={false} somenteLeitura={projetoLiberado} />
+            <ArquivosObra
+              obra={obra}
+              framed={false}
+              mostrarTitulo={false}
+              somenteLeitura={projetoLiberado}
+            />
           </section>
+
         </div>
 
+        {/* ASIDE: HISTÓRICO */}
         <aside>
-          <HistoricoObra obra={historicoProjeto} />
+          <HistoricoObra obra={obra} />
         </aside>
       </div>
 
+      {/* MODAIS */}
       {escopo && (
-        <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && setEscopo(false)}>
+        <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && setEscopo(false)}>
           <div className="modal">
             <div className="modal-header" style={{ background: 'linear-gradient(135deg,var(--azul) 60%,var(--azul-medio))' }}>
               Confirmar Escopo
@@ -187,12 +173,12 @@ export default function ObraDetalheAllana({ obra }) {
             </div>
             <div className="modal-body">
               <p style={{ fontSize: 13 }}>
-                Confirme que o escopo desta etapa será produzido de forma integral antes de liberar o projeto.
+                Confirme que o escopo desta etapa será produzido de forma integral antes de liberar.
               </p>
             </div>
             <div className="modal-footer">
-              <Button variant="secondary" onClick={() => setEscopo(false)}>Cancelar</Button>
-              <Button variant="success" onClick={confirmarEscopoIntegral}>Confirmar e Liberar</Button>
+              <button className="btn btn-secondary" onClick={() => setEscopo(false)}>Cancelar</button>
+              <button className="btn btn-primary" onClick={confirmarEscopoIntegral}>Confirmar e Liberar</button>
             </div>
           </div>
         </div>

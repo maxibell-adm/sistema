@@ -4,8 +4,22 @@ import { useAuth } from '@/modules/auth/AuthContext.jsx';
 import { useObrasContext } from '@/modules/obras/ObrasContext.jsx';
 import ModalAvancoPurchase, { LABEL_CATEGORIA, LABEL_STATUS, proximoStatus } from '@/modules/obras/ModalAvancoPurchase.jsx';
 
+function statusVisualCC(status) {
+  if (status === 'pendente' || status === 'separacao_concluida') return 'separacao_pendente';
+  return status;
+}
+
+const LABEL_STATUS_CC = {
+  separacao_pendente: '📦 Separação',
+  compra_pendente: '🛒 Compra Pendente',
+  aguardando_entrega: '🚚 Aguardando Entrega',
+  finalizado: '✅ Finalizado',
+  vidro_dispensado: '↩ Dispensado',
+};
+
 const COR_STATUS = {
   pendente: '#B0B8C4',
+  separacao_pendente: '#B0B8C4',
   separacao_concluida: '#C4A84F',
   compra_pendente: '#7B9CBF',
   aguardando_entrega: '#C47E3A',
@@ -25,7 +39,7 @@ function estaAtrasado(compra) {
 function statusDaAba(aba, incluirArquivados = false) {
   const base = aba === 'vidros'
     ? ['compra_pendente', 'aguardando_entrega']
-    : ['pendente', 'separacao_concluida', 'compra_pendente', 'aguardando_entrega'];
+    : ['separacao_pendente', 'compra_pendente', 'aguardando_entrega'];
 
   if (!incluirArquivados) return base;
   const extras = ['finalizado'];
@@ -52,7 +66,14 @@ function CompraCard({ obra, categoria, onAvancar, onDispensar, onAbrirObra }) {
       )}
 
       <div className="obra-mini-pp cc-pp-link" onClick={onAbrirObra} title="Ver detalhe da obra">{obra.pp}</div>
-      <div className="obra-mini-cliente">{obra.cliente}</div>
+      <div
+        className="obra-mini-cliente"
+        style={{ cursor: 'pointer', textDecoration: 'underline dotted', color: 'var(--azul)' }}
+        onClick={(e) => { e.stopPropagation(); onAbrirObra?.(obra); }}
+        title="Abrir obra completa"
+      >
+        {obra.cliente}
+      </div>
       <div className="obra-mini-cidade">📍 {obra.cidade}</div>
 
       {compra.fornecedor && (
@@ -99,6 +120,10 @@ export default function CentralCompras() {
   const kanbanScrollRef = useRef(null);
   const fixedBarRef = useRef(null);
   const [kanbanLargura, setKanbanLargura] = useState(0);
+  const [zoomCC, setZoomCC] = useState(() => {
+    const salvo = localStorage.getItem('maxibell.zoom.compras');
+    return salvo ? parseFloat(salvo) : 1;
+  });
 
   const obrasDeCompras = useMemo(() =>
     obras.filter((obra) => obra.etapa === 'compras' || obra.ehCardOC),
@@ -176,11 +201,19 @@ export default function CentralCompras() {
       ro.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fixedBarRef.current, telaCheia, abaAtiva, mostrarFinalizados, obrasFiltradas.length]);
+  }, [fixedBarRef.current, telaCheia, abaAtiva, mostrarFinalizados, obrasFiltradas.length, zoomCC]);
 
   function entrarTelaCheia() {
     document.documentElement.requestFullscreen?.();
     setTelaCheia(true);
+  }
+
+  function ajustarZoomCC(delta) {
+    setZoomCC((valorAtual) => {
+      const novoValor = Math.min(1.2, Math.max(0.6, +(valorAtual + delta).toFixed(1)));
+      localStorage.setItem('maxibell.zoom.compras', String(novoValor));
+      return novoValor;
+    });
   }
 
   function confirmarAvanco(obraId, categoria, dados) {
@@ -224,11 +257,21 @@ export default function CentralCompras() {
     const colunas = statusDaAba(abaAtiva, mostrarFinalizados);
     return (
       <div className="kanban-scroll" ref={kanbanScrollRef} style={{ overflowX: 'hidden' }}>
-        <div className="kanban">
+        <div
+          className="kanban"
+          style={{
+            transform: `scale(${zoomCC})`,
+            transformOrigin: 'top left',
+            width: `${100 / zoomCC}%`,
+            minHeight: zoomCC < 1 ? `${100 / zoomCC}vh` : undefined,
+            transition: 'transform .15s ease',
+          }}
+        >
           {colunas.map((status) => {
             const cards = obrasFiltradas.filter((o) => {
               const compra = o.compras?.[abaAtiva] || {};
-              return compra.status === status;
+              const statusAtual = compra.status || (abaAtiva === 'vidros' ? 'compra_pendente' : 'pendente');
+              return statusVisualCC(statusAtual) === status;
             });
             const isArquivado = ['finalizado', 'vidro_dispensado'].includes(status);
             return (
@@ -240,7 +283,7 @@ export default function CentralCompras() {
                     background: `${COR_STATUS[status]}18`,
                   }}
                 >
-                  <span>{LABEL_STATUS[status]}</span>
+                  <span>{LABEL_STATUS_CC[status] || LABEL_STATUS[status] || status}</span>
                   <span>{cards.length}</span>
                 </div>
                 <div className="kanban-col-body">
@@ -341,6 +384,16 @@ export default function CentralCompras() {
           >
             Mostrar finalizados
           </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button className="btn btn-sm btn-cc-inativo" type="button" onClick={() => ajustarZoomCC(-0.1)} title="Diminuir zoom">-</button>
+            <span style={{ minWidth: 42, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--cinza-medio)' }}>
+              {Math.round(zoomCC * 100)}%
+            </span>
+            <button className="btn btn-sm btn-cc-inativo" type="button" onClick={() => ajustarZoomCC(0.1)} title="Aumentar zoom">+</button>
+            {zoomCC !== 1 && (
+              <button className="btn btn-sm btn-cc-inativo" type="button" onClick={() => ajustarZoomCC(1 - zoomCC)} title="Resetar zoom">Reset</button>
+            )}
+          </div>
           <button
             className={`btn btn-sm ${telaCheia ? 'btn-secondary' : 'btn-danger'}`}
             onClick={telaCheia ? () => document.exitFullscreen() : entrarTelaCheia}

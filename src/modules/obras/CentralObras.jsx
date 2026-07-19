@@ -24,6 +24,10 @@ export default function CentralObras() {
   const kanbanScrollRef = useRef(null);
   const fixedBarRef = useRef(null);
   const [kanbanLargura, setKanbanLargura] = useState(0);
+  const [zoomKanban, setZoomKanban] = useState(() => {
+    const salvo = localStorage.getItem('maxibell.zoom.obras');
+    return salvo ? parseFloat(salvo) : 1;
+  });
 
   const entrarFullscreen = useCallback(() => {
     setFullscreen(true);
@@ -36,6 +40,14 @@ export default function CentralObras() {
     if (document.fullscreenElement) document.exitFullscreen();
     setFullscreen(false);
   }, []);
+
+  function ajustarZoom(delta) {
+    setZoomKanban((valorAtual) => {
+      const novoValor = Math.min(1.2, Math.max(0.6, +(valorAtual + delta).toFixed(1)));
+      localStorage.setItem('maxibell.zoom.obras', String(novoValor));
+      return novoValor;
+    });
+  }
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -114,7 +126,7 @@ export default function CentralObras() {
       kanban.removeEventListener('scroll', onKanbanScroll);
       ro.disconnect();
     };
-  }, [fullscreen, etapasRender.length, filtradas.length]);
+  }, [fullscreen, etapasRender.length, filtradas.length, zoomKanban]);
 
   function renderFiltros() {
     if (usuario.role === 'medicao') {
@@ -171,9 +183,33 @@ export default function CentralObras() {
     );
   }
 
+  function renderZoomControles() {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 'auto' }}>
+        <button className="btn btn-secondary btn-sm" type="button" onClick={() => ajustarZoom(-0.1)} title="Diminuir zoom">-</button>
+        <span style={{ minWidth: 42, textAlign: 'center', fontSize: 12, fontWeight: 700, color: 'var(--cinza-medio)' }}>
+          {Math.round(zoomKanban * 100)}%
+        </span>
+        <button className="btn btn-secondary btn-sm" type="button" onClick={() => ajustarZoom(0.1)} title="Aumentar zoom">+</button>
+        {zoomKanban !== 1 && (
+          <button className="btn btn-secondary btn-sm" type="button" onClick={() => ajustarZoom(1 - zoomKanban)} title="Resetar zoom">Reset</button>
+        )}
+      </div>
+    );
+  }
+
   function renderKanban() {
     return (
-      <div className="kanban">
+      <div
+        className="kanban"
+        style={{
+          transform: `scale(${zoomKanban})`,
+          transformOrigin: 'top left',
+          width: `${100 / zoomKanban}%`,
+          minHeight: zoomKanban < 1 ? `${100 / zoomKanban}vh` : undefined,
+          transition: 'transform .15s ease',
+        }}
+      >
         {etapasRender.map((etapa) => {
           let obrasEtapa = filtradas.filter((o) => o.etapa === etapa.id);
 
@@ -232,6 +268,7 @@ export default function CentralObras() {
           <div className="kanban-toolbar sticky">
             {renderFiltros()}
             {renderMetricas()}
+            {renderZoomControles()}
             <Button variant="danger" size="sm" onClick={entrarFullscreen} title="Tela cheia">Tela Cheia</Button>
           </div>
 
@@ -299,6 +336,7 @@ export default function CentralObras() {
                 <span className="mm-valor">{obrasNaoArquivadas.length}</span><span className="mm-label">Total</span>
               </button>
             </div>
+            {renderZoomControles()}
             <button className="btn btn-danger btn-sm" onClick={sairFullscreen}>Sair da tela cheia</button>
           </div>
           <div className="kanban-fullscreen-body">
